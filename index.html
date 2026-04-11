@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARCADE</title>
+<meta name="description" content="Browser-based arcade emulator. Load your own ROMs, play classics from the golden age. Everything stays on your machine.">
+<meta name="theme-color" content="#0a0a0e">
+<meta name="color-scheme" content="dark">
+
+<!-- OG -->
+<meta property="og:title" content="ARCADE">
+<meta property="og:description" content="Browser-based arcade emulator. Your ROMs, your machine, your browser.">
+<meta property="og:type" content="website">
+
+<!-- Favicon (inline SVG) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='12' fill='%230a0a0e'/%3E%3Ctext x='50' y='68' font-family='monospace' font-size='52' font-weight='bold' fill='%2344ff88' text-anchor='middle'%3EA.%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='12' fill='%230a0a0e'/%3E%3Ctext x='50' y='68' font-family='monospace' font-size='52' font-weight='bold' fill='%2344ff88' text-anchor='middle'%3EA.%3C/text%3E%3C/svg%3E">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0e;
+    --card-bg: #12121a;
+    --card-border: #1e1e2a;
+    --card-hover: #16162a;
+    --text: #e8e8e8;
+    --text-dim: #888;
+    --accent: #44ff88;
+    --accent-dim: #22aa55;
+    --highlight: #ff4444;
+    --year: #ffaa33;
+    --scanline-opacity: 0.04;
+    --genre-shooter: #ff6644;
+    --genre-fighter: #ff4466;
+    --genre-beatemup: #cc44ff;
+    --genre-platform: #44aaff;
+    --genre-maze: #44ffaa;
+    --genre-puzzle: #ffcc44;
+    --genre-racing: #44ddff;
+    --genre-sports: #88cc44;
+    --genre-misc: #888;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    font-size: 16px;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,var(--scanline-opacity)) 2px,
+      rgba(0,0,0,var(--scanline-opacity)) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ---- HEADER ---- */
+  header {
+    padding: 30px 40px 20px;
+    border-bottom: 1px solid var(--card-border);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  .logo {
+    font-family: 'Silkscreen', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-shadow: 0 0 20px rgba(68,255,136,0.3);
+    letter-spacing: 4px;
+  }
+  .logo span { color: var(--highlight); }
+  .header-stats {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+  .header-stats em { color: var(--accent); font-style: normal; }
+
+  /* ---- TOOLBAR ---- */
+  .toolbar {
+    padding: 12px 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--card-border);
+  }
+  .toolbar button, .toolbar label, .toolbar select {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .toolbar button:hover, .toolbar label:hover {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+  .toolbar select {
+    color: var(--text);
+    appearance: none;
+    padding-right: 24px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+  }
+  .toolbar select:focus { outline: none; border-color: var(--accent); }
+  .toolbar input[type="file"] { display: none; }
+
+  .search-box {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    padding: 7px 14px;
+    flex: 1;
+    min-width: 180px;
+    outline: none;
+  }
+  .search-box:focus { border-color: var(--accent); }
+  .search-box::placeholder { color: #444; }
+
+  .filter-btn {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-dim) !important;
+    font-size: 0.75rem !important;
+    padding: 7px 10px !important;
+  }
+  .filter-btn.active {
+    color: var(--accent) !important;
+    border-color: var(--accent-dim) !important;
+  }
+  .filter-btn .count {
+    opacity: 0.5;
+    font-size: 0.65rem;
+    margin-left: 3px;
+  }
+
+  .toolbar-sep {
+    width: 1px;
+    height: 20px;
+    background: var(--card-border);
+    margin: 0 4px;
+  }
+
+  /* ---- DROP ZONE ---- */
+  #drop-zone {
+    padding: 80px 40px;
+    text-align: center;
+  }
+  #drop-zone .prompt {
+    border: 2px dashed #2a2a3a;
+    padding: 60px 40px;
+    max-width: 600px;
+    margin: 0 auto;
+    transition: border-color 0.2s;
+  }
+  #drop-zone .prompt.dragover { border-color: var(--accent); }
+  #drop-zone h2 {
+    font-family: 'Silkscreen', monospace;
+    font-size: 1.1rem;
+    color: var(--accent);
+    margin-bottom: 15px;
+  }
+  #drop-zone p {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+  }
+  .drop-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 25px;
+  }
+  .drop-buttons button {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    padding: 10px 22px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .drop-buttons button:hover {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+
+  /* ---- GAME GRID ---- */
+  #library {
+    padding: 25px 40px;
+    display: none;
+    min-height: 50vh;
+  }
+  #library.dragover { outline: 2px dashed var(--accent-dim); outline-offset: -10px; }
+
+  .game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 10px;
+  }
+  .game-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-left: 3px solid var(--genre-misc);
+    padding: 14px 18px 14px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .game-card:hover {
+    border-color: var(--card-border);
+    background: var(--card-hover);
+    transform: translateY(-1px);
+  }
+  .game-card:active { transform: translateY(0); }
+  .game-card .title {
+    font-size: 1rem;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .game-card .meta {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .game-card .meta .year { color: var(--year); }
+  .game-card .meta .maker { color: #8888cc; }
+  .game-card .rom-name {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    font-size: 0.6rem;
+    color: #282838;
+  }
+  .game-card .delete-btn {
+    position: absolute;
+    bottom: 6px;
+    right: 8px;
+    font-size: 0.65rem;
+    color: #333;
+    cursor: pointer;
+    padding: 2px 6px;
+    border: none;
+    background: none;
+    font-family: 'Share Tech Mono', monospace;
+    transition: color 0.15s;
+  }
+  .game-card .delete-btn:hover { color: var(--highlight); }
+
+  /* Genre border colours */
+  .game-card[data-genre="shooter"]  { border-left-color: var(--genre-shooter); }
+  .game-card[data-genre="fighter"]  { border-left-color: var(--genre-fighter); }
+  .game-card[data-genre="beatemup"]{ border-left-color: var(--genre-beatemup); }
+  .game-card[data-genre="platform"]{ border-left-color: var(--genre-platform); }
+  .game-card[data-genre="maze"]    { border-left-color: var(--genre-maze); }
+  .game-card[data-genre="puzzle"]  { border-left-color: var(--genre-puzzle); }
+  .game-card[data-genre="racing"]  { border-left-color: var(--genre-racing); }
+  .game-card[data-genre="sports"]  { border-left-color: var(--genre-sports); }
+
+  .game-card.unknown { border-left-color: #2a2a2a; }
+  .game-card.unknown .title { color: var(--text-dim); }
+
+  .section-label {
+    font-family: 'Silkscreen', monospace;
+    font-size: 0.75rem;
+    color: #333;
+    margin: 25px 0 10px;
+    letter-spacing: 2px;
+    grid-column: 1 / -1;
+  }
+
+  .no-results {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    grid-column: 1 / -1;
+  }
+
+  /* ---- EMULATOR OVERLAY ---- */
+  #emulator-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 1000;
+    flex-direction: column;
+  }
+  #emu-header {
+    background: var(--bg);
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border-bottom: 1px solid var(--card-border);
+    z-index: 10;
+  }
+  #emu-back {
+    background: none;
+    border: 1px solid var(--card-border);
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    padding: 5px 12px;
+    cursor: pointer;
+  }
+  #emu-back:hover { background: var(--accent); color: var(--bg); }
+  #emu-title { font-size: 0.9rem; color: var(--text); }
+  #emu-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  #emu-container iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+</style>
+</head>
+<body>
+
+<noscript>
+  <div style="padding:40px;text-align:center;color:#ccc;font-family:monospace;">
+    ARCADE requires JavaScript to run.
+  </div>
+</noscript>
+
+<header>
+  <div class="logo">ARCADE<span>.</span></div>
+  <div class="header-stats" id="stats"></div>
+</header>
+
+<div class="toolbar" id="toolbar" style="display:none">
+  <label for="add-files">+ ADD ROMS</label>
+  <input type="file" id="add-files" accept=".zip,.7z" multiple>
+
+  <input type="text" class="search-box" id="search" placeholder="Search games...">
+
+  <select id="sort-select">
+    <option value="title">Sort: Title</option>
+    <option value="year">Sort: Year</option>
+    <option value="maker">Sort: Maker</option>
+    <option value="genre">Sort: Genre</option>
+  </select>
+
+  <div class="toolbar-sep"></div>
+
+  <button class="filter-btn active" data-filter="all">ALL</button>
+  <button class="filter-btn" data-filter="shooter">SHOOT</button>
+  <button class="filter-btn" data-filter="fighter">FIGHT</button>
+  <button class="filter-btn" data-filter="beatemup">BEAT</button>
+  <button class="filter-btn" data-filter="platform">PLAT</button>
+  <button class="filter-btn" data-filter="maze">MAZE</button>
+  <button class="filter-btn" data-filter="puzzle">PUZZLE</button>
+  <button class="filter-btn" data-filter="racing">RACE</button>
+  <button class="filter-btn" data-filter="sports">SPORT</button>
+  <button class="filter-btn" data-filter="misc">MISC</button>
+
+  <div class="toolbar-sep"></div>
+  <button id="clear-library" style="color:var(--highlight) !important; border-color:#331111 !important;">CLEAR ALL</button>
+</div>
+
+<div id="drop-zone">
+  <div class="prompt" id="drop-prompt">
+    <h2>LOAD YOUR ROMS</h2>
+    <p>Drop .zip ROM files here, or click below</p>
+    <p style="color:#333; font-size:0.75rem; margin-top:12px;">FBNeo compatible ROM sets</p>
+    <div class="drop-buttons">
+      <button onclick="document.getElementById('init-files').click()">Select Files</button>
+    </div>
+    <input type="file" id="init-files" accept=".zip,.7z" multiple style="display:none">
+    <p style="color:#222; font-size:0.65rem; margin-top:30px; line-height:1.6;">
+      Your ROMs never leave your machine.<br>
+      Everything runs locally in your browser.
+    </p>
+  </div>
+</div>
+
+<div id="library">
+  <div class="game-grid" id="game-grid"></div>
+</div>
+
+<div id="emulator-overlay">
+  <div id="emu-header">
+    <button id="emu-back">← BACK</button>
+    <span id="emu-title"></span>
+  </div>
+  <div id="emu-container"></div>
+</div>
+
+<script>
+// ============================================
+// GAME DATABASE
+// ============================================
+const GAMEDB = {
+  // SHOOTERS
+  "1942":     { title: "1942", year: 1984, maker: "Capcom", genre: "shooter" },
+  "1943":     { title: "1943: The Battle of Midway", year: 1987, maker: "Capcom", genre: "shooter" },
+  "1943kai":  { title: "1943 Kai", year: 1988, maker: "Capcom", genre: "shooter" },
+  "1944":     { title: "1944: The Loop Master", year: 2000, maker: "Capcom", genre: "shooter" },
+  "19xx":     { title: "19XX: The War Against Destiny", year: 1996, maker: "Capcom", genre: "shooter" },
+  "galaga":   { title: "Galaga", year: 1981, maker: "Namco", genre: "shooter" },
+  "galaxian": { title: "Galaxian", year: 1979, maker: "Namco", genre: "shooter" },
+  "xevious":  { title: "Xevious", year: 1982, maker: "Namco", genre: "shooter" },
+  "gradius":  { title: "Gradius", year: 1985, maker: "Konami", genre: "shooter" },
+  "nemesis":  { title: "Nemesis", year: 1985, maker: "Konami", genre: "shooter" },
+  "salamand": { title: "Salamander", year: 1986, maker: "Konami", genre: "shooter" },
+  "lifefrce": { title: "Life Force", year: 1987, maker: "Konami", genre: "shooter" },
+  "twinbee":  { title: "TwinBee", year: 1985, maker: "Konami", genre: "shooter" },
+  "parodius": { title: "Parodius", year: 1990, maker: "Konami", genre: "shooter" },
+  "darius":   { title: "Darius", year: 1987, maker: "Taito", genre: "shooter" },
+  "dariusg":  { title: "Darius Gaiden", year: 1994, maker: "Taito", genre: "shooter" },
+  "raiden":   { title: "Raiden", year: 1990, maker: "Seibu Kaihatsu", genre: "shooter" },
+  "raiden2":  { title: "Raiden II", year: 1993, maker: "Seibu Kaihatsu", genre: "shooter" },
+  "rtype":    { title: "R-Type", year: 1987, maker: "Irem", genre: "shooter" },
+  "rtype2":   { title: "R-Type II", year: 1989, maker: "Irem", genre: "shooter" },
+  "aburner":  { title: "After Burner", year: 1987, maker: "Sega", genre: "shooter" },
+  "aburner2": { title: "After Burner II", year: 1987, maker: "Sega", genre: "shooter" },
+  "commando": { title: "Commando", year: 1985, maker: "Capcom", genre: "shooter" },
+  "gunsmoke": { title: "Gun.Smoke", year: 1985, maker: "Capcom", genre: "shooter" },
+  "sidearms": { title: "Side Arms", year: 1986, maker: "Capcom", genre: "shooter" },
+  "varth":    { title: "Varth: Operation Thunderstorm", year: 1992, maker: "Capcom", genre: "shooter" },
+  "gigawing": { title: "Giga Wing", year: 1999, maker: "Capcom", genre: "shooter" },
+  "progear":  { title: "Progear", year: 2001, maker: "Capcom / Cave", genre: "shooter" },
+  "contra":   { title: "Contra", year: 1987, maker: "Konami", genre: "shooter" },
+  "scontra":  { title: "Super Contra", year: 1988, maker: "Konami", genre: "shooter" },
+  "ikari":    { title: "Ikari Warriors", year: 1986, maker: "SNK", genre: "shooter" },
+  "bosconian":{ title: "Bosconian", year: 1981, maker: "Namco", genre: "shooter" },
+  "starforc": { title: "Star Force", year: 1984, maker: "Tehkan", genre: "shooter" },
+  "truxton":  { title: "Truxton", year: 1988, maker: "Toaplan", genre: "shooter" },
+  "truxton2": { title: "Truxton II", year: 1992, maker: "Toaplan", genre: "shooter" },
+  "batsugun": { title: "Batsugun", year: 1993, maker: "Toaplan", genre: "shooter" },
+  "vulgus":   { title: "Vulgus", year: 1984, maker: "Capcom", genre: "shooter" },
+  "sonson":   { title: "Son Son", year: 1984, maker: "Capcom", genre: "shooter" },
+  "exedexes": { title: "Exed Exes", year: 1985, maker: "Capcom", genre: "shooter" },
+  "lastduel": { title: "Last Duel", year: 1988, maker: "Capcom", genre: "shooter" },
+  "area88":   { title: "Area 88 / U.N. Squadron", year: 1989, maker: "Capcom", genre: "shooter" },
+  "unsquad":  { title: "U.N. Squadron", year: 1989, maker: "Capcom", genre: "shooter" },
+  "mercs":    { title: "Mercs", year: 1990, maker: "Capcom", genre: "shooter" },
+  "snowbros": { title: "Snow Bros.", year: 1990, maker: "Toaplan", genre: "shooter" },
+  "aerofgt":  { title: "Aero Fighters", year: 1992, maker: "Video System", genre: "shooter" },
+  "blazstar": { title: "Blazing Star", year: 1998, maker: "Yumekobo", genre: "shooter" },
+  "mslug":    { title: "Metal Slug", year: 1996, maker: "Nazca", genre: "shooter" },
+  "mslug2":   { title: "Metal Slug 2", year: 1998, maker: "SNK", genre: "shooter" },
+  "mslug3":   { title: "Metal Slug 3", year: 2000, maker: "SNK", genre: "shooter" },
+  "mslugx":   { title: "Metal Slug X", year: 1999, maker: "SNK", genre: "shooter" },
+  "cawing":   { title: "Carrier Air Wing", year: 1990, maker: "Capcom", genre: "shooter" },
+
+  // FIGHTERS
+  "sf2":      { title: "Street Fighter II: The World Warrior", year: 1991, maker: "Capcom", genre: "fighter" },
+  "sf2ce":    { title: "Street Fighter II': Champion Edition", year: 1992, maker: "Capcom", genre: "fighter" },
+  "sf2t":     { title: "Street Fighter II' Turbo", year: 1992, maker: "Capcom", genre: "fighter" },
+  "sf2hf":    { title: "Street Fighter II' Turbo: Hyper Fighting", year: 1992, maker: "Capcom", genre: "fighter" },
+  "ssf2":     { title: "Super Street Fighter II", year: 1993, maker: "Capcom", genre: "fighter" },
+  "ssf2t":    { title: "Super Street Fighter II Turbo", year: 1994, maker: "Capcom", genre: "fighter" },
+  "sf":       { title: "Street Fighter", year: 1987, maker: "Capcom", genre: "fighter" },
+  "sfa":      { title: "Street Fighter Alpha", year: 1995, maker: "Capcom", genre: "fighter" },
+  "sfa2":     { title: "Street Fighter Alpha 2", year: 1996, maker: "Capcom", genre: "fighter" },
+  "sfa3":     { title: "Street Fighter Alpha 3", year: 1998, maker: "Capcom", genre: "fighter" },
+  "sfiii3":   { title: "Street Fighter III: 3rd Strike", year: 1999, maker: "Capcom", genre: "fighter" },
+  "dstlk":    { title: "Darkstalkers", year: 1994, maker: "Capcom", genre: "fighter" },
+  "nwarr":    { title: "Night Warriors: Darkstalkers' Revenge", year: 1995, maker: "Capcom", genre: "fighter" },
+  "vsav":     { title: "Vampire Savior", year: 1997, maker: "Capcom", genre: "fighter" },
+  "xmvsf":    { title: "X-Men vs. Street Fighter", year: 1996, maker: "Capcom", genre: "fighter" },
+  "mshvsf":   { title: "Marvel Super Heroes vs. Street Fighter", year: 1997, maker: "Capcom", genre: "fighter" },
+  "mvsc":     { title: "Marvel vs. Capcom", year: 1998, maker: "Capcom", genre: "fighter" },
+  "xmcota":   { title: "X-Men: Children of the Atom", year: 1994, maker: "Capcom", genre: "fighter" },
+  "msh":      { title: "Marvel Super Heroes", year: 1995, maker: "Capcom", genre: "fighter" },
+  "kof94":    { title: "The King of Fighters '94", year: 1994, maker: "SNK", genre: "fighter" },
+  "kof95":    { title: "The King of Fighters '95", year: 1995, maker: "SNK", genre: "fighter" },
+  "kof96":    { title: "The King of Fighters '96", year: 1996, maker: "SNK", genre: "fighter" },
+  "kof97":    { title: "The King of Fighters '97", year: 1997, maker: "SNK", genre: "fighter" },
+  "kof98":    { title: "The King of Fighters '98", year: 1998, maker: "SNK", genre: "fighter" },
+  "fatfury1": { title: "Fatal Fury", year: 1991, maker: "SNK", genre: "fighter" },
+  "fatfury2": { title: "Fatal Fury 2", year: 1992, maker: "SNK", genre: "fighter" },
+  "fatfursp": { title: "Fatal Fury Special", year: 1993, maker: "SNK", genre: "fighter" },
+  "garou":    { title: "Garou: Mark of the Wolves", year: 1999, maker: "SNK", genre: "fighter" },
+  "samsho":   { title: "Samurai Shodown", year: 1993, maker: "SNK", genre: "fighter" },
+  "samsho2":  { title: "Samurai Shodown II", year: 1994, maker: "SNK", genre: "fighter" },
+  "aof":      { title: "Art of Fighting", year: 1992, maker: "SNK", genre: "fighter" },
+  "wof":      { title: "Warriors of Fate", year: 1992, maker: "Capcom", genre: "fighter" },
+  "mk":       { title: "Mortal Kombat", year: 1992, maker: "Midway", genre: "fighter" },
+  "mk2":      { title: "Mortal Kombat II", year: 1993, maker: "Midway", genre: "fighter" },
+  "mk3":      { title: "Mortal Kombat 3", year: 1995, maker: "Midway", genre: "fighter" },
+  "umk3":     { title: "Ultimate Mortal Kombat 3", year: 1995, maker: "Midway", genre: "fighter" },
+  "kinst":    { title: "Killer Instinct", year: 1994, maker: "Rare/Nintendo", genre: "fighter" },
+  "tekken":   { title: "Tekken", year: 1994, maker: "Namco", genre: "fighter" },
+  "tekken2":  { title: "Tekken 2", year: 1995, maker: "Namco", genre: "fighter" },
+  "soulclbr": { title: "Soul Calibur", year: 1998, maker: "Namco", genre: "fighter" },
+
+  // BEAT-EM-UPS
+  "ffight":   { title: "Final Fight", year: 1989, maker: "Capcom", genre: "beatemup" },
+  "ffightu":  { title: "Final Fight (US)", year: 1989, maker: "Capcom", genre: "beatemup" },
+  "ddragon":  { title: "Double Dragon", year: 1987, maker: "Technos", genre: "beatemup" },
+  "ddragon2": { title: "Double Dragon II", year: 1988, maker: "Technos", genre: "beatemup" },
+  "ddragon3": { title: "Double Dragon 3", year: 1990, maker: "Technos", genre: "beatemup" },
+  "tmnt":     { title: "Teenage Mutant Ninja Turtles", year: 1989, maker: "Konami", genre: "beatemup" },
+  "tmnt2":    { title: "TMNT: Turtles in Time", year: 1991, maker: "Konami", genre: "beatemup" },
+  "simpsons": { title: "The Simpsons", year: 1991, maker: "Konami", genre: "beatemup" },
+  "xmen":     { title: "X-Men", year: 1992, maker: "Konami", genre: "beatemup" },
+  "punisher": { title: "The Punisher", year: 1993, maker: "Capcom", genre: "beatemup" },
+  "captcomm": { title: "Captain Commando", year: 1991, maker: "Capcom", genre: "beatemup" },
+  "kod":      { title: "The King of Dragons", year: 1991, maker: "Capcom", genre: "beatemup" },
+  "knights":  { title: "Knights of the Round", year: 1991, maker: "Capcom", genre: "beatemup" },
+  "avsp":     { title: "Alien vs. Predator", year: 1994, maker: "Capcom", genre: "beatemup" },
+  "ddsom":    { title: "D&D: Shadow over Mystara", year: 1996, maker: "Capcom", genre: "beatemup" },
+  "ddtod":    { title: "D&D: Tower of Doom", year: 1994, maker: "Capcom", genre: "beatemup" },
+  "baddudes": { title: "Bad Dudes vs. DragonNinja", year: 1988, maker: "Data East", genre: "beatemup" },
+  "renegade": { title: "Renegade", year: 1986, maker: "Technos", genre: "beatemup" },
+  "vigilant": { title: "Vigilante", year: 1988, maker: "Irem", genre: "beatemup" },
+  "growl":    { title: "Growl", year: 1990, maker: "Taito", genre: "beatemup" },
+  "vendetta": { title: "Vendetta", year: 1991, maker: "Konami", genre: "beatemup" },
+  "crimfght": { title: "Crime Fighters", year: 1989, maker: "Konami", genre: "beatemup" },
+  "ghouls":   { title: "Ghouls'n Ghosts", year: 1988, maker: "Capcom", genre: "beatemup" },
+  "strider":  { title: "Strider", year: 1989, maker: "Capcom", genre: "beatemup" },
+  "willow":   { title: "Willow", year: 1989, maker: "Capcom", genre: "beatemup" },
+
+  // PLATFORMERS
+  "dkong":    { title: "Donkey Kong", year: 1981, maker: "Nintendo", genre: "platform" },
+  "dkongjr":  { title: "Donkey Kong Jr.", year: 1982, maker: "Nintendo", genre: "platform" },
+  "dkong3":   { title: "Donkey Kong 3", year: 1983, maker: "Nintendo", genre: "platform" },
+  "mario":    { title: "Mario Bros.", year: 1983, maker: "Nintendo", genre: "platform" },
+  "popeye":   { title: "Popeye", year: 1982, maker: "Nintendo", genre: "platform" },
+  "bublbobl": { title: "Bubble Bobble", year: 1986, maker: "Taito", genre: "platform" },
+  "bombjack": { title: "Bomb Jack", year: 1984, maker: "Tehkan", genre: "platform" },
+  "ghosts":   { title: "Ghosts'n Goblins", year: 1985, maker: "Capcom", genre: "platform" },
+  "pang":     { title: "Pang", year: 1989, maker: "Mitchell", genre: "platform" },
+  "spang":    { title: "Super Pang", year: 1990, maker: "Mitchell", genre: "platform" },
+  "mappy":    { title: "Mappy", year: 1983, maker: "Namco", genre: "platform" },
+
+  // MAZE
+  "pacman":   { title: "Pac-Man", year: 1980, maker: "Namco", genre: "maze" },
+  "mspacman": { title: "Ms. Pac-Man", year: 1982, maker: "Midway", genre: "maze" },
+  "pacland":  { title: "Pac-Land", year: 1984, maker: "Namco", genre: "maze" },
+  "digdug":   { title: "Dig Dug", year: 1982, maker: "Namco", genre: "maze" },
+  "digdug2":  { title: "Dig Dug II", year: 1985, maker: "Namco", genre: "maze" },
+  "pengo":    { title: "Pengo", year: 1982, maker: "Sega", genre: "maze" },
+  "ladybug":  { title: "Lady Bug", year: 1981, maker: "Universal", genre: "maze" },
+  "mrdo":     { title: "Mr. Do!", year: 1982, maker: "Universal", genre: "maze" },
+  "rallyx":   { title: "Rally-X", year: 1980, maker: "Namco", genre: "maze" },
+  "nrallyx":  { title: "New Rally-X", year: 1981, maker: "Namco", genre: "maze" },
+  "cclimber": { title: "Crazy Climber", year: 1980, maker: "Nichibutsu", genre: "maze" },
+  "frogger":  { title: "Frogger", year: 1981, maker: "Konami", genre: "maze" },
+  "qbert":    { title: "Q*bert", year: 1982, maker: "Gottlieb", genre: "maze" },
+
+  // PUZZLE
+  "tetris":   { title: "Tetris", year: 1988, maker: "Atari", genre: "puzzle" },
+  "columns":  { title: "Columns", year: 1990, maker: "Sega", genre: "puzzle" },
+  "puyopuyo": { title: "Puyo Puyo", year: 1992, maker: "Compile", genre: "puzzle" },
+  "bustamov": { title: "Puzzle Bobble / Bust-A-Move", year: 1994, maker: "Taito", genre: "puzzle" },
+  "pbobble":  { title: "Puzzle Bobble", year: 1994, maker: "Taito", genre: "puzzle" },
+  "pbobble2": { title: "Puzzle Bobble 2", year: 1995, maker: "Taito", genre: "puzzle" },
+  "sgemf":    { title: "Super Gem Fighter Mini Mix", year: 1997, maker: "Capcom", genre: "puzzle" },
+  "pnickj":   { title: "Pnickies", year: 1994, maker: "Compile/Capcom", genre: "puzzle" },
+
+  // RACING
+  "outrun":   { title: "Out Run", year: 1986, maker: "Sega", genre: "racing" },
+  "outrunb":  { title: "Out Run (bootleg)", year: 1986, maker: "Sega", genre: "racing" },
+  "spyhuntr": { title: "Spy Hunter", year: 1983, maker: "Bally Midway", genre: "racing" },
+  "polepos":  { title: "Pole Position", year: 1982, maker: "Namco", genre: "racing" },
+  "polepos2": { title: "Pole Position II", year: 1983, maker: "Namco", genre: "racing" },
+
+  // SPORTS
+  "trackfld": { title: "Track & Field", year: 1983, maker: "Konami", genre: "sports" },
+  "hyprolym": { title: "Hyper Olympic", year: 1983, maker: "Konami", genre: "sports" },
+  "punchout": { title: "Punch-Out!!", year: 1984, maker: "Nintendo", genre: "sports" },
+  "spnchout": { title: "Super Punch-Out!!", year: 1985, maker: "Nintendo", genre: "sports" },
+  "nbajam":   { title: "NBA Jam", year: 1993, maker: "Midway", genre: "sports" },
+  "nbajamte": { title: "NBA Jam Tournament Edition", year: 1994, maker: "Midway", genre: "sports" },
+
+  // MISC
+  "asteroid": { title: "Asteroids", year: 1979, maker: "Atari", genre: "misc" },
+  "astdelux": { title: "Asteroids Deluxe", year: 1980, maker: "Atari", genre: "misc" },
+  "centipde": { title: "Centipede", year: 1981, maker: "Atari", genre: "misc" },
+  "milliped": { title: "Millipede", year: 1982, maker: "Atari", genre: "misc" },
+  "defender": { title: "Defender", year: 1981, maker: "Williams", genre: "misc" },
+  "stargate": { title: "Stargate", year: 1981, maker: "Williams", genre: "misc" },
+  "robotron": { title: "Robotron: 2084", year: 1982, maker: "Williams", genre: "misc" },
+  "joust":    { title: "Joust", year: 1982, maker: "Williams", genre: "misc" },
+  "tempest":  { title: "Tempest", year: 1981, maker: "Atari", genre: "misc" },
+  "missile":  { title: "Missile Command", year: 1980, maker: "Atari", genre: "misc" },
+  "battlezn": { title: "Battlezone", year: 1980, maker: "Atari", genre: "misc" },
+  "arkanoid": { title: "Arkanoid", year: 1986, maker: "Taito", genre: "misc" },
+  "arkanoidu":{ title: "Arkanoid (US)", year: 1986, maker: "Taito", genre: "misc" },
+  "invaders": { title: "Space Invaders", year: 1978, maker: "Taito", genre: "misc" },
+  "phoenix":  { title: "Phoenix", year: 1980, maker: "Amstar", genre: "misc" },
+  "scramble": { title: "Scramble", year: 1981, maker: "Konami", genre: "misc" },
+  "tron":     { title: "Tron", year: 1982, maker: "Bally Midway", genre: "misc" },
+  "wboy":     { title: "Wonder Boy", year: 1986, maker: "Sega", genre: "misc" },
+  "shinobi":  { title: "Shinobi", year: 1987, maker: "Sega", genre: "misc" },
+  "altbeast": { title: "Altered Beast", year: 1988, maker: "Sega", genre: "misc" },
+  "goldnaxe": { title: "Golden Axe", year: 1989, maker: "Sega", genre: "misc" },
+  "forgottn": { title: "Forgotten Worlds", year: 1988, maker: "Capcom", genre: "misc" },
+  "dynwar":   { title: "Dynasty Wars", year: 1989, maker: "Capcom", genre: "misc" },
+  "3wonders": { title: "Three Wonders", year: 1991, maker: "Capcom", genre: "misc" },
+  "msword":   { title: "Magic Sword", year: 1990, maker: "Capcom", genre: "misc" },
+  "nemo":     { title: "Nemo", year: 1990, maker: "Capcom", genre: "misc" },
+  "megaman":  { title: "Mega Man: The Power Battle", year: 1995, maker: "Capcom", genre: "misc" },
+  "megaman2": { title: "Mega Man 2: The Power Fighters", year: 1996, maker: "Capcom", genre: "misc" },
+  "mtwins":   { title: "Mega Twins", year: 1990, maker: "Capcom", genre: "misc" },
+  "cadash":   { title: "Cadash", year: 1989, maker: "Taito", genre: "misc" },
+  "prehisle": { title: "Prehistoric Isle in 1930", year: 1989, maker: "SNK", genre: "misc" },
+  "bombrman": { title: "Bomberman", year: 1990, maker: "Hudson/Irem", genre: "misc" },
+};
+
+// ============================================
+// STATE
+// ============================================
+let loadedROMs = new Map();
+let currentFilter = 'all';
+let currentSort = 'title';
+let searchQuery = '';
+
+// ============================================
+// INDEXEDDB PERSISTENCE
+// ============================================
+const DB_NAME = 'ArcadeROMs';
+const DB_VERSION = 1;
+const STORE_NAME = 'roms';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function cacheROM(romId, arrayBuffer, fileName) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put({ id: romId, data: arrayBuffer, fileName });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function loadAllCached() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const req = tx.objectStore(STORE_NAME).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function deleteROM(romId) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(romId);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function clearAllROMs() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).clear();
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ============================================
+// ROM LOADING
+// ============================================
+async function processFiles(files) {
+  let count = 0;
+  for (const file of files) {
+    if (!file.name.match(/\.(zip|7z)$/i)) continue;
+    const romId = file.name.replace(/\.(zip|7z)$/i, '');
+    const info = GAMEDB[romId] || null;
+    const arrayBuffer = await file.arrayBuffer();
+    // Store in memory (as a Blob so we can re-read later)
+    const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
+    const memFile = new File([blob], file.name, { type: 'application/octet-stream' });
+    loadedROMs.set(romId, { file: memFile, info });
+    // Cache to IndexedDB
+    await cacheROM(romId, arrayBuffer, file.name);
+    count++;
+  }
+  if (count > 0) renderLibrary();
+}
+
+async function loadFromCache() {
+  try {
+    const cached = await loadAllCached();
+    if (cached.length === 0) return;
+    for (const { id, data, fileName } of cached) {
+      const info = GAMEDB[id] || null;
+      const blob = new Blob([data], { type: 'application/octet-stream' });
+      const file = new File([blob], fileName, { type: 'application/octet-stream' });
+      loadedROMs.set(id, { file, info });
+    }
+    renderLibrary();
+  } catch (e) {
+    console.warn('Failed to load cached ROMs:', e);
+  }
+}
+
+async function removeROM(romId) {
+  loadedROMs.delete(romId);
+  await deleteROM(romId);
+  if (loadedROMs.size === 0) {
+    document.getElementById('drop-zone').style.display = '';
+    document.getElementById('library').style.display = 'none';
+    document.getElementById('toolbar').style.display = 'none';
+  } else {
+    renderLibrary();
+  }
+}
+
+async function clearLibrary() {
+  loadedROMs.clear();
+  await clearAllROMs();
+  document.getElementById('drop-zone').style.display = '';
+  document.getElementById('library').style.display = 'none';
+  document.getElementById('toolbar').style.display = 'none';
+}
+
+// ============================================
+// RENDERING
+// ============================================
+function getGenreCounts() {
+  const counts = { all: 0 };
+  for (const [, { info }] of loadedROMs) {
+    if (!info) continue;
+    counts.all++;
+    counts[info.genre] = (counts[info.genre] || 0) + 1;
+  }
+  return counts;
+}
+
+function renderLibrary() {
+  document.getElementById('drop-zone').style.display = 'none';
+  const library = document.getElementById('library');
+  library.style.display = 'block';
+  document.getElementById('toolbar').style.display = 'flex';
+
+  const entries = Array.from(loadedROMs.entries());
+  const known = entries.filter(([,v]) => v.info);
+  const unknown = entries.filter(([,v]) => !v.info);
+
+  // Update filter counts
+  const counts = getGenreCounts();
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    const f = btn.dataset.filter;
+    const c = counts[f] || 0;
+    const label = btn.textContent.replace(/\s*\d+$/, '');
+    btn.innerHTML = f === 'all'
+      ? `ALL <span class="count">${counts.all || 0}</span>`
+      : `${label} <span class="count">${c}</span>`;
+  });
+
+  // Filter
+  let filtered = known.filter(([, v]) => {
+    if (currentFilter !== 'all' && v.info.genre !== currentFilter) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return v.info.title.toLowerCase().includes(q) ||
+             v.info.maker.toLowerCase().includes(q) ||
+             v.info.genre.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  // Sort
+  filtered.sort((a, b) => {
+    const ai = a[1].info, bi = b[1].info;
+    switch (currentSort) {
+      case 'year':  return ai.year - bi.year || ai.title.localeCompare(bi.title);
+      case 'maker': return ai.maker.localeCompare(bi.maker) || ai.title.localeCompare(bi.title);
+      case 'genre': return ai.genre.localeCompare(bi.genre) || ai.title.localeCompare(bi.title);
+      default:      return ai.title.localeCompare(bi.title);
+    }
+  });
+
+  // Unknown
+  let filteredUnknown = unknown;
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    filteredUnknown = unknown.filter(([id]) => id.toLowerCase().includes(q));
+  }
+  if (currentFilter !== 'all') filteredUnknown = [];
+  filteredUnknown.sort((a, b) => a[0].localeCompare(b[0]));
+
+  // Stats
+  document.getElementById('stats').innerHTML =
+    `<em>${known.length}</em> recognised / ${entries.length} ROMs loaded`;
+
+  // Render grid
+  const grid = document.getElementById('game-grid');
+  grid.innerHTML = '';
+
+  if (filtered.length === 0 && filteredUnknown.length === 0) {
+    grid.innerHTML = '<div class="no-results">No matching games found.</div>';
+    return;
+  }
+
+  for (const [romId, { info }] of filtered) {
+    const card = document.createElement('div');
+    card.className = 'game-card';
+    card.dataset.genre = info.genre;
+    card.innerHTML = `
+      <div class="title">${info.title}</div>
+      <div class="meta">
+        <span class="year">${info.year}</span>
+        <span class="maker">${info.maker}</span>
+      </div>
+      <div class="rom-name">${romId}</div>
+      <button class="delete-btn" data-rom="${romId}" title="Remove from library">x</button>
+    `;
+    card.addEventListener('click', (e) => {
+      if (e.target.classList.contains('delete-btn')) return;
+      launchGame(romId);
+    });
+    card.querySelector('.delete-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeROM(romId);
+    });
+    grid.appendChild(card);
+  }
+
+  if (filteredUnknown.length > 0) {
+    const label = document.createElement('div');
+    label.className = 'section-label';
+    label.textContent = `UNRECOGNISED (${filteredUnknown.length})`;
+    grid.appendChild(label);
+
+    for (const [romId] of filteredUnknown) {
+      const card = document.createElement('div');
+      card.className = 'game-card unknown';
+      card.innerHTML = `<div class="title">${romId}</div><button class="delete-btn" data-rom="${romId}" title="Remove from library">x</button>`;
+      card.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-btn')) return;
+        launchGame(romId);
+      });
+      card.querySelector('.delete-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeROM(romId);
+      });
+      grid.appendChild(card);
+    }
+  }
+}
+
+// ============================================
+// EMULATOR (iframe + XHR interception)
+// ============================================
+function buildEmulatorPage(romFileName) {
+  return `<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<style>body,html{margin:0;padding:0;background:#000;overflow:hidden}</style>
+</head><body>
+<div style="width:100%;height:100vh"><div id="game"></div></div>
+<script>
+let romData = null;
+const romUrl = 'roms/${romFileName}';
+
+// Patch XMLHttpRequest to intercept ROM URL
+const OrigXHR = XMLHttpRequest;
+function PatchedXHR() {
+  const xhr = new OrigXHR();
+  const origOpen = xhr.open.bind(xhr);
+  const origSend = xhr.send.bind(xhr);
+  let intercepted = false;
+
+  xhr.open = function(method, url) {
+    if (typeof url === 'string' && url.includes(romUrl) && romData) {
+      intercepted = true;
+    }
+    return origOpen.apply(this, arguments);
+  };
+
+  xhr.send = function(body) {
+    if (intercepted && romData) {
+      Object.defineProperty(xhr, 'status', { get: () => 200 });
+      Object.defineProperty(xhr, 'readyState', { get: () => 4 });
+      Object.defineProperty(xhr, 'response', { get: () => romData });
+      Object.defineProperty(xhr, 'responseType', { value: 'arraybuffer', writable: true });
+      setTimeout(() => {
+        xhr.dispatchEvent(new Event('load'));
+        if (xhr.onload) xhr.onload(new Event('load'));
+        xhr.dispatchEvent(new Event('loadend'));
+      }, 10);
+      return;
+    }
+    return origSend.apply(this, arguments);
+  };
+
+  return xhr;
+}
+window.XMLHttpRequest = PatchedXHR;
+
+const origFetch = window.fetch;
+window.fetch = function(url, opts) {
+  if (typeof url === 'string' && url.includes(romUrl) && romData) {
+    return Promise.resolve(new Response(romData, {
+      status: 200,
+      headers: { 'Content-Type': 'application/octet-stream' }
+    }));
+  }
+  return origFetch.call(this, url, opts);
+};
+
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'romData') {
+    romData = e.data.data;
+    window.EJS_player = '#game';
+    window.EJS_core = 'fbneo';
+    window.EJS_gameUrl = romUrl;
+    window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+    window.EJS_startOnLoaded = true;
+    window.EJS_language = 'en';
+    window.EJS_color = '#44ff88';
+    window.EJS_gameID = e.data.gameId || '';
+    const s = document.createElement('script');
+    s.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+    document.body.appendChild(s);
+  }
+});
+window.parent.postMessage({ type: 'iframeReady' }, '*');
+` + `<` + `/script>
+</body></html>`;
+}
+
+async function launchGame(romId) {
+  const rom = loadedROMs.get(romId);
+  if (!rom) return;
+
+  const overlay = document.getElementById('emulator-overlay');
+  const container = document.getElementById('emu-container');
+  document.getElementById('emu-title').textContent =
+    rom.info ? rom.info.title : romId;
+
+  container.innerHTML = '';
+
+  const arrayBuffer = await rom.file.arrayBuffer();
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('allow', 'autoplay');
+  iframe.srcdoc = buildEmulatorPage(rom.file.name);
+
+  const onMessage = (e) => {
+    if (e.data && e.data.type === 'iframeReady') {
+      window.removeEventListener('message', onMessage);
+      iframe.contentWindow.postMessage({
+        type: 'romData',
+        data: arrayBuffer,
+        gameId: romId
+      }, '*');
+    }
+  };
+  window.addEventListener('message', onMessage);
+
+  container.appendChild(iframe);
+  overlay.style.display = 'flex';
+}
+
+function closeEmulator() {
+  document.getElementById('emu-container').innerHTML = '';
+  document.getElementById('emulator-overlay').style.display = 'none';
+}
+
+// ============================================
+// EVENT HANDLERS
+// ============================================
+document.addEventListener('DOMContentLoaded', () => {
+  // File inputs (initial + toolbar)
+  ['init-files', 'add-files'].forEach(id => {
+    document.getElementById(id).addEventListener('change', e => processFiles(e.target.files));
+  });
+
+  // Drop zone drag-drop
+  const dropPrompt = document.getElementById('drop-prompt');
+  dropPrompt.addEventListener('dragover', e => { e.preventDefault(); dropPrompt.classList.add('dragover'); });
+  dropPrompt.addEventListener('dragleave', () => dropPrompt.classList.remove('dragover'));
+  dropPrompt.addEventListener('drop', e => {
+    e.preventDefault();
+    dropPrompt.classList.remove('dragover');
+    if (e.dataTransfer.files) processFiles(e.dataTransfer.files);
+  });
+
+  // Library area drag-drop (add more ROMs)
+  const library = document.getElementById('library');
+  library.addEventListener('dragover', e => { e.preventDefault(); library.classList.add('dragover'); });
+  library.addEventListener('dragleave', () => library.classList.remove('dragover'));
+  library.addEventListener('drop', e => {
+    e.preventDefault();
+    library.classList.remove('dragover');
+    if (e.dataTransfer.files) processFiles(e.dataTransfer.files);
+  });
+
+  // Search
+  document.getElementById('search').addEventListener('input', e => {
+    searchQuery = e.target.value;
+    renderLibrary();
+  });
+
+  // Sort
+  document.getElementById('sort-select').addEventListener('change', e => {
+    currentSort = e.target.value;
+    renderLibrary();
+  });
+
+  // Filters
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      renderLibrary();
+    });
+  });
+
+  // Emulator controls
+  document.getElementById('emu-back').addEventListener('click', closeEmulator);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeEmulator();
+  });
+
+  // Clear library
+  document.getElementById('clear-library').addEventListener('click', () => {
+    if (loadedROMs.size === 0) return;
+    if (confirm('Remove all ROMs from library?')) clearLibrary();
+  });
+
+  // Load cached ROMs from IndexedDB
+  loadFromCache();
+});
+</script>
+
+</body>
+</html>
