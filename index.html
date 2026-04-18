@@ -3,365 +3,379 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ARCADE</title>
-<meta name="description" content="Browser-based arcade emulator. Load your own ROMs, play classics from the golden age. Everything stays on your machine.">
+<title>FREEPLAY</title>
+<meta name="description" content="Browser-based arcade frontend. Load your own ROMs, play classics. Everything stays on your machine.">
 <meta name="theme-color" content="#0a0a0e">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="dark light">
 
-<!-- OG -->
-<meta property="og:title" content="ARCADE">
-<meta property="og:description" content="Browser-based arcade emulator. Your ROMs, your machine, your browser.">
+<meta property="og:title" content="FREEPLAY">
+<meta property="og:description" content="Browser-based arcade frontend. Your ROMs, your machine, your browser.">
 <meta property="og:type" content="website">
 
-<!-- Favicon (inline SVG) -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='12' fill='%230a0a0e'/%3E%3Ctext x='50' y='68' font-family='monospace' font-size='52' font-weight='bold' fill='%2344ff88' text-anchor='middle'%3EA.%3C/text%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='12' fill='%230a0a0e'/%3E%3Ctext x='50' y='68' font-family='monospace' font-size='52' font-weight='bold' fill='%2344ff88' text-anchor='middle'%3EA.%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='12' fill='%230a0a0e'/%3E%3Ctext x='50' y='68' font-family='monospace' font-size='52' font-weight='bold' fill='%2344ff88' text-anchor='middle'%3EF.%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='12' fill='%230a0a0e'/%3E%3Ctext x='50' y='68' font-family='monospace' font-size='52' font-weight='bold' fill='%2344ff88' text-anchor='middle'%3EF.%3C/text%3E%3C/svg%3E">
 
-<!-- Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<!-- Active theme -->
+<link rel="stylesheet" id="theme-css" href="themes/default.css">
+
 <style>
-  :root {
-    --bg: #0a0a0e;
-    --card-bg: #12121a;
-    --card-border: #1e1e2a;
-    --card-hover: #16162a;
-    --text: #e8e8e8;
-    --text-dim: #888;
-    --accent: #44ff88;
-    --accent-dim: #22aa55;
-    --highlight: #ff4444;
-    --year: #ffaa33;
-    --scanline-opacity: 0.04;
-    --genre-shooter: #ff6644;
-    --genre-fighter: #ff4466;
-    --genre-beatemup: #cc44ff;
-    --genre-platform: #44aaff;
-    --genre-maze: #44ffaa;
-    --genre-puzzle: #ffcc44;
-    --genre-racing: #44ddff;
-    --genre-sports: #88cc44;
-    --genre-misc: #888;
-  }
+/* ==========================================
+   FREEPLAY · STRUCTURE
+   Layout only. Visual decisions live in themes/*.css
+   ========================================== */
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Share Tech Mono', 'Courier New', monospace;
-    font-size: 16px;
-    line-height: 1.5;
-    overflow-x: hidden;
-  }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height);
+  letter-spacing: var(--letter-spacing-body);
+  overflow-x: hidden;
+  transition: background var(--transition), color var(--transition);
+}
 
-  /* Scanline overlay */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0,0,0,var(--scanline-opacity)) 2px,
-      rgba(0,0,0,var(--scanline-opacity)) 4px
-    );
-    pointer-events: none;
-    z-index: 9999;
-  }
+/* Scanline overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    var(--scanline-color) 2px,
+    var(--scanline-color) 4px
+  );
+  opacity: var(--scanline-opacity);
+  pointer-events: none;
+  z-index: 9999;
+}
 
-  /* ---- HEADER ---- */
-  header {
-    padding: 30px 40px 20px;
-    border-bottom: 1px solid var(--card-border);
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 15px;
-  }
-  .logo {
-    font-family: 'Silkscreen', monospace;
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--accent);
-    text-shadow: 0 0 20px rgba(68,255,136,0.3);
-    letter-spacing: 4px;
-  }
-  .logo span { color: var(--highlight); }
-  .header-stats {
-    font-size: 0.85rem;
-    color: var(--text-dim);
-  }
-  .header-stats em { color: var(--accent); font-style: normal; }
+/* ---- HEADER ---- */
+header {
+  padding: 30px 40px 20px;
+  border-bottom: 1px solid var(--card-border);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+.logo {
+  font-family: var(--font-display);
+  font-size: var(--logo-size);
+  font-weight: 700;
+  color: var(--accent);
+  text-shadow: var(--glow-logo);
+  letter-spacing: var(--letter-spacing-display);
+  text-transform: var(--text-transform-display);
+}
+.logo span { color: var(--highlight); }
+.header-stats {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.header-stats em { color: var(--accent); font-style: normal; }
 
-  /* ---- TOOLBAR ---- */
-  .toolbar {
-    padding: 12px 40px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    border-bottom: 1px solid var(--card-border);
-  }
-  .toolbar button, .toolbar label, .toolbar select {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    color: var(--accent);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.8rem;
-    padding: 7px 14px;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .toolbar button:hover, .toolbar label:hover {
-    background: var(--accent);
-    color: var(--bg);
-    border-color: var(--accent);
-  }
-  .toolbar select {
-    color: var(--text);
-    appearance: none;
-    padding-right: 24px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 8px center;
-  }
-  .toolbar select:focus { outline: none; border-color: var(--accent); }
-  .toolbar input[type="file"] { display: none; }
+/* ---- TOOLBAR ---- */
+.toolbar {
+  padding: 12px 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--card-border);
+  background: var(--bg-panel);
+}
+.toolbar button, .toolbar label, .toolbar select {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.toolbar button:hover, .toolbar label:hover {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+.toolbar select {
+  color: var(--text);
+  appearance: none;
+  padding-right: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.toolbar select:focus { outline: none; border-color: var(--accent); }
+.toolbar input[type="file"] { display: none; }
 
-  .search-box {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    color: var(--text);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.85rem;
-    padding: 7px 14px;
-    flex: 1;
-    min-width: 180px;
-    outline: none;
-  }
-  .search-box:focus { border-color: var(--accent); }
-  .search-box::placeholder { color: #444; }
+.search-box {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  padding: 7px 14px;
+  flex: 1;
+  min-width: 180px;
+  outline: none;
+}
+.search-box:focus { border-color: var(--accent); }
+.search-box::placeholder { color: var(--text-faint); }
 
-  .filter-btn {
-    background: var(--card-bg) !important;
-    border: 1px solid var(--card-border) !important;
-    color: var(--text-dim) !important;
-    font-size: 0.75rem !important;
-    padding: 7px 10px !important;
-  }
-  .filter-btn.active {
-    color: var(--accent) !important;
-    border-color: var(--accent-dim) !important;
-  }
-  .filter-btn .count {
-    opacity: 0.5;
-    font-size: 0.65rem;
-    margin-left: 3px;
-  }
+.filter-btn {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--card-border) !important;
+  color: var(--text-dim) !important;
+  font-size: 0.75rem !important;
+  padding: 7px 10px !important;
+}
+.filter-btn.active {
+  color: var(--accent) !important;
+  border-color: var(--accent-dim) !important;
+}
+.filter-btn .count {
+  opacity: 0.5;
+  font-size: 0.65rem;
+  margin-left: 3px;
+}
 
-  .toolbar-sep {
-    width: 1px;
-    height: 20px;
-    background: var(--card-border);
-    margin: 0 4px;
-  }
+.clear-btn {
+  color: var(--highlight) !important;
+  border-color: var(--highlight-dim) !important;
+}
+.clear-btn:hover {
+  background: var(--highlight) !important;
+  color: var(--bg) !important;
+  border-color: var(--highlight) !important;
+}
 
-  /* ---- DROP ZONE ---- */
-  #drop-zone {
-    padding: 80px 40px;
-    text-align: center;
-  }
-  #drop-zone .prompt {
-    border: 2px dashed #2a2a3a;
-    padding: 60px 40px;
-    max-width: 600px;
-    margin: 0 auto;
-    transition: border-color 0.2s;
-  }
-  #drop-zone .prompt.dragover { border-color: var(--accent); }
-  #drop-zone h2 {
-    font-family: 'Silkscreen', monospace;
-    font-size: 1.1rem;
-    color: var(--accent);
-    margin-bottom: 15px;
-  }
-  #drop-zone p {
-    color: var(--text-dim);
-    font-size: 0.85rem;
-    margin-bottom: 8px;
-  }
-  .drop-buttons {
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-    margin-top: 25px;
-  }
-  .drop-buttons button {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    color: var(--accent);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.85rem;
-    padding: 10px 22px;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .drop-buttons button:hover {
-    background: var(--accent);
-    color: var(--bg);
-    border-color: var(--accent);
-  }
+.toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--card-border);
+  margin: 0 4px;
+}
 
-  /* ---- GAME GRID ---- */
-  #library {
-    padding: 25px 40px;
-    display: none;
-    min-height: 50vh;
-  }
-  #library.dragover { outline: 2px dashed var(--accent-dim); outline-offset: -10px; }
+/* ---- DROP ZONE ---- */
+#drop-zone {
+  padding: 80px 40px;
+  text-align: center;
+}
+#drop-zone .prompt {
+  border: 2px dashed var(--bg-drop-border);
+  border-radius: var(--card-radius);
+  padding: 60px 40px;
+  max-width: 600px;
+  margin: 0 auto;
+  transition: border-color var(--transition);
+}
+#drop-zone .prompt.dragover { border-color: var(--accent); }
+#drop-zone h2 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--accent);
+  letter-spacing: var(--letter-spacing-display);
+  text-transform: var(--text-transform-display);
+  margin-bottom: 15px;
+}
+#drop-zone p {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+.drop-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 25px;
+}
+.drop-buttons button {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  padding: 10px 22px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.drop-buttons button:hover {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+.privacy-note {
+  color: var(--text-ghost);
+  font-size: 0.65rem;
+  margin-top: 30px;
+  line-height: 1.6;
+}
 
-  .game-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 10px;
-  }
-  .game-card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-left: 3px solid var(--genre-misc);
-    padding: 14px 18px 14px 16px;
-    cursor: pointer;
-    transition: all 0.15s;
-    position: relative;
-  }
-  .game-card:hover {
-    border-color: var(--card-border);
-    background: var(--card-hover);
-    transform: translateY(-1px);
-  }
-  .game-card:active { transform: translateY(0); }
-  .game-card .title {
-    font-size: 1rem;
-    color: var(--text);
-    margin-bottom: 4px;
-  }
-  .game-card .meta {
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .game-card .meta .year { color: var(--year); }
-  .game-card .meta .maker { color: #8888cc; }
-  .game-card .rom-name {
-    position: absolute;
-    top: 6px;
-    right: 10px;
-    font-size: 0.6rem;
-    color: #282838;
-  }
-  .game-card .delete-btn {
-    position: absolute;
-    bottom: 6px;
-    right: 8px;
-    font-size: 0.65rem;
-    color: #333;
-    cursor: pointer;
-    padding: 2px 6px;
-    border: none;
-    background: none;
-    font-family: 'Share Tech Mono', monospace;
-    transition: color 0.15s;
-  }
-  .game-card .delete-btn:hover { color: var(--highlight); }
+/* ---- GAME GRID ---- */
+#library {
+  padding: 25px 40px;
+  display: none;
+  min-height: 50vh;
+}
+#library.dragover { outline: 2px dashed var(--accent-dim); outline-offset: -10px; }
 
-  /* Genre border colours */
-  .game-card[data-genre="shooter"]  { border-left-color: var(--genre-shooter); }
-  .game-card[data-genre="fighter"]  { border-left-color: var(--genre-fighter); }
-  .game-card[data-genre="beatemup"]{ border-left-color: var(--genre-beatemup); }
-  .game-card[data-genre="platform"]{ border-left-color: var(--genre-platform); }
-  .game-card[data-genre="maze"]    { border-left-color: var(--genre-maze); }
-  .game-card[data-genre="puzzle"]  { border-left-color: var(--genre-puzzle); }
-  .game-card[data-genre="racing"]  { border-left-color: var(--genre-racing); }
-  .game-card[data-genre="sports"]  { border-left-color: var(--genre-sports); }
+.game-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+.game-card {
+  background: var(--card-bg);
+  border: var(--card-border-width) solid var(--card-border);
+  border-left: var(--card-genre-strip) solid var(--genre-misc);
+  border-radius: var(--card-radius);
+  padding: 14px 18px 14px 16px;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+}
+.game-card:hover {
+  background: var(--card-bg-hover);
+  border-color: var(--card-border-hover);
+  border-left-color: var(--genre-misc);
+  box-shadow: var(--glow-card-hover);
+  transform: translateY(-1px);
+}
+.game-card:active { transform: translateY(0); }
+.game-card .title {
+  font-size: 1rem;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.game-card .meta {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.game-card .meta .year { color: var(--year-color); }
+.game-card .meta .maker { color: var(--maker-color); }
+.game-card .rom-name {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  font-size: 0.6rem;
+  color: var(--text-ghost);
+}
+.game-card .delete-btn {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  font-size: 0.65rem;
+  color: var(--text-ghost);
+  cursor: pointer;
+  padding: 2px 6px;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  transition: color var(--transition);
+}
+.game-card .delete-btn:hover { color: var(--highlight); }
 
-  .game-card.unknown { border-left-color: #2a2a2a; }
-  .game-card.unknown .title { color: var(--text-dim); }
+/* Genre-colored strips - use border-left-color which overrides the hover reset */
+.game-card[data-genre="shooter"],  .game-card[data-genre="shooter"]:hover  { border-left-color: var(--genre-shooter); }
+.game-card[data-genre="fighter"],  .game-card[data-genre="fighter"]:hover  { border-left-color: var(--genre-fighter); }
+.game-card[data-genre="beatemup"], .game-card[data-genre="beatemup"]:hover { border-left-color: var(--genre-beatemup); }
+.game-card[data-genre="platform"], .game-card[data-genre="platform"]:hover { border-left-color: var(--genre-platform); }
+.game-card[data-genre="maze"],     .game-card[data-genre="maze"]:hover     { border-left-color: var(--genre-maze); }
+.game-card[data-genre="puzzle"],   .game-card[data-genre="puzzle"]:hover   { border-left-color: var(--genre-puzzle); }
+.game-card[data-genre="racing"],   .game-card[data-genre="racing"]:hover   { border-left-color: var(--genre-racing); }
+.game-card[data-genre="sports"],   .game-card[data-genre="sports"]:hover   { border-left-color: var(--genre-sports); }
 
-  .section-label {
-    font-family: 'Silkscreen', monospace;
-    font-size: 0.75rem;
-    color: #333;
-    margin: 25px 0 10px;
-    letter-spacing: 2px;
-    grid-column: 1 / -1;
-  }
+.game-card.unknown { border-left-color: var(--text-ghost); }
+.game-card.unknown:hover { border-left-color: var(--text-ghost); }
+.game-card.unknown .title { color: var(--text-dim); }
 
-  .no-results {
-    padding: 40px;
-    text-align: center;
-    color: var(--text-dim);
-    font-size: 0.9rem;
-    grid-column: 1 / -1;
-  }
+.section-label {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  letter-spacing: var(--letter-spacing-display);
+  text-transform: var(--text-transform-display);
+  margin: 25px 0 10px;
+  grid-column: 1 / -1;
+}
 
-  /* ---- EMULATOR OVERLAY ---- */
-  #emulator-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: #000;
-    z-index: 1000;
-    flex-direction: column;
-  }
-  #emu-header {
-    background: var(--bg);
-    padding: 8px 20px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    border-bottom: 1px solid var(--card-border);
-    z-index: 10;
-  }
-  #emu-back {
-    background: none;
-    border: 1px solid var(--card-border);
-    color: var(--accent);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.8rem;
-    padding: 5px 12px;
-    cursor: pointer;
-  }
-  #emu-back:hover { background: var(--accent); color: var(--bg); }
-  #emu-title { font-size: 0.9rem; color: var(--text); }
-  #emu-container {
-    flex: 1;
-    position: relative;
-    overflow: hidden;
-  }
-  #emu-container iframe {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: none;
-  }
+.no-results {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  grid-column: 1 / -1;
+}
+
+/* ---- EMULATOR OVERLAY ---- */
+#emulator-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 1000;
+  flex-direction: column;
+}
+#emu-header {
+  background: var(--bg-panel);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border-bottom: 1px solid var(--card-border);
+  z-index: 10;
+}
+#emu-back {
+  background: none;
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+#emu-back:hover { background: var(--accent); color: var(--bg); }
+#emu-title { font-size: 0.9rem; color: var(--text); }
+#emu-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+#emu-container iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
 </style>
 </head>
 <body>
 
 <noscript>
   <div style="padding:40px;text-align:center;color:#ccc;font-family:monospace;">
-    ARCADE requires JavaScript to run.
+    FREEPLAY requires JavaScript to run.
   </div>
 </noscript>
 
 <header>
-  <div class="logo">ARCADE<span>.</span></div>
+  <div class="logo">FREEPLAY<span>.</span></div>
   <div class="header-stats" id="stats"></div>
 </header>
 
@@ -378,6 +392,13 @@
     <option value="genre">Sort: Genre</option>
   </select>
 
+  <select id="theme-select" title="Theme">
+    <option value="default">Theme: CRT Green</option>
+    <option value="amber">Theme: Amber</option>
+    <option value="neon">Theme: Neon</option>
+    <option value="paper">Theme: Paper</option>
+  </select>
+
   <div class="toolbar-sep"></div>
 
   <button class="filter-btn active" data-filter="all">ALL</button>
@@ -392,19 +413,19 @@
   <button class="filter-btn" data-filter="misc">MISC</button>
 
   <div class="toolbar-sep"></div>
-  <button id="clear-library" style="color:var(--highlight) !important; border-color:#331111 !important;">CLEAR ALL</button>
+  <button id="clear-library" class="clear-btn">CLEAR ALL</button>
 </div>
 
 <div id="drop-zone">
   <div class="prompt" id="drop-prompt">
     <h2>LOAD YOUR ROMS</h2>
     <p>Drop .zip ROM files here, or click below</p>
-    <p style="color:#333; font-size:0.75rem; margin-top:12px;">FBNeo compatible ROM sets</p>
+    <p style="color:var(--text-faint); font-size:0.75rem; margin-top:12px;">FBNeo compatible ROM sets</p>
     <div class="drop-buttons">
       <button onclick="document.getElementById('init-files').click()">Select Files</button>
     </div>
     <input type="file" id="init-files" accept=".zip,.7z" multiple style="display:none">
-    <p style="color:#222; font-size:0.65rem; margin-top:30px; line-height:1.6;">
+    <p class="privacy-note">
       Your ROMs never leave your machine.<br>
       Everything runs locally in your browser.
     </p>
@@ -647,9 +668,23 @@ let currentSort = 'title';
 let searchQuery = '';
 
 // ============================================
+// THEME SWITCHING
+// ============================================
+function applyTheme(name) {
+  document.getElementById('theme-css').href = `themes/${name}.css`;
+  localStorage.setItem('freeplay-theme', name);
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('freeplay-theme') || 'default';
+  document.getElementById('theme-css').href = `themes/${saved}.css`;
+  document.getElementById('theme-select').value = saved;
+}
+
+// ============================================
 // INDEXEDDB PERSISTENCE
 // ============================================
-const DB_NAME = 'ArcadeROMs';
+const DB_NAME = 'FreeplayROMs';
 const DB_VERSION = 1;
 const STORE_NAME = 'roms';
 
@@ -684,7 +719,7 @@ async function loadAllCached() {
   });
 }
 
-async function deleteROM(romId) {
+async function deleteROMFromDB(romId) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -714,11 +749,9 @@ async function processFiles(files) {
     const romId = file.name.replace(/\.(zip|7z)$/i, '');
     const info = GAMEDB[romId] || null;
     const arrayBuffer = await file.arrayBuffer();
-    // Store in memory (as a Blob so we can re-read later)
     const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
     const memFile = new File([blob], file.name, { type: 'application/octet-stream' });
     loadedROMs.set(romId, { file: memFile, info });
-    // Cache to IndexedDB
     await cacheROM(romId, arrayBuffer, file.name);
     count++;
   }
@@ -743,7 +776,7 @@ async function loadFromCache() {
 
 async function removeROM(romId) {
   loadedROMs.delete(romId);
-  await deleteROM(romId);
+  await deleteROMFromDB(romId);
   if (loadedROMs.size === 0) {
     document.getElementById('drop-zone').style.display = '';
     document.getElementById('library').style.display = 'none';
@@ -776,20 +809,19 @@ function getGenreCounts() {
 
 function renderLibrary() {
   document.getElementById('drop-zone').style.display = 'none';
-  const library = document.getElementById('library');
-  library.style.display = 'block';
+  document.getElementById('library').style.display = 'block';
   document.getElementById('toolbar').style.display = 'flex';
 
   const entries = Array.from(loadedROMs.entries());
   const known = entries.filter(([,v]) => v.info);
   const unknown = entries.filter(([,v]) => !v.info);
 
-  // Update filter counts
+  // Filter counts
   const counts = getGenreCounts();
   document.querySelectorAll('.filter-btn').forEach(btn => {
     const f = btn.dataset.filter;
     const c = counts[f] || 0;
-    const label = btn.textContent.replace(/\s*\d+$/, '');
+    const label = btn.textContent.replace(/\s*\d+$/, '').trim();
     btn.innerHTML = f === 'all'
       ? `ALL <span class="count">${counts.all || 0}</span>`
       : `${label} <span class="count">${c}</span>`;
@@ -827,11 +859,9 @@ function renderLibrary() {
   if (currentFilter !== 'all') filteredUnknown = [];
   filteredUnknown.sort((a, b) => a[0].localeCompare(b[0]));
 
-  // Stats
   document.getElementById('stats').innerHTML =
     `<em>${known.length}</em> recognised / ${entries.length} ROMs loaded`;
 
-  // Render grid
   const grid = document.getElementById('game-grid');
   grid.innerHTML = '';
 
@@ -851,7 +881,7 @@ function renderLibrary() {
         <span class="maker">${info.maker}</span>
       </div>
       <div class="rom-name">${romId}</div>
-      <button class="delete-btn" data-rom="${romId}" title="Remove from library">x</button>
+      <button class="delete-btn" title="Remove from library">x</button>
     `;
     card.addEventListener('click', (e) => {
       if (e.target.classList.contains('delete-btn')) return;
@@ -873,7 +903,7 @@ function renderLibrary() {
     for (const [romId] of filteredUnknown) {
       const card = document.createElement('div');
       card.className = 'game-card unknown';
-      card.innerHTML = `<div class="title">${romId}</div><button class="delete-btn" data-rom="${romId}" title="Remove from library">x</button>`;
+      card.innerHTML = `<div class="title">${romId}</div><button class="delete-btn" title="Remove">x</button>`;
       card.addEventListener('click', (e) => {
         if (e.target.classList.contains('delete-btn')) return;
         launchGame(romId);
@@ -901,22 +931,17 @@ function buildEmulatorPage(romFileName) {
 let romData = null;
 const romUrl = 'roms/${romFileName}';
 
-// Patch XMLHttpRequest to intercept ROM URL
 const OrigXHR = XMLHttpRequest;
 function PatchedXHR() {
   const xhr = new OrigXHR();
   const origOpen = xhr.open.bind(xhr);
   const origSend = xhr.send.bind(xhr);
   let intercepted = false;
-
   xhr.open = function(method, url) {
-    if (typeof url === 'string' && url.includes(romUrl) && romData) {
-      intercepted = true;
-    }
+    if (typeof url === 'string' && url.includes(romUrl) && romData) intercepted = true;
     return origOpen.apply(this, arguments);
   };
-
-  xhr.send = function(body) {
+  xhr.send = function() {
     if (intercepted && romData) {
       Object.defineProperty(xhr, 'status', { get: () => 200 });
       Object.defineProperty(xhr, 'readyState', { get: () => 4 });
@@ -931,7 +956,6 @@ function PatchedXHR() {
     }
     return origSend.apply(this, arguments);
   };
-
   return xhr;
 }
 window.XMLHttpRequest = PatchedXHR;
@@ -1009,7 +1033,11 @@ function closeEmulator() {
 // EVENT HANDLERS
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
-  // File inputs (initial + toolbar)
+  // Theme
+  initTheme();
+  document.getElementById('theme-select').addEventListener('change', e => applyTheme(e.target.value));
+
+  // File inputs
   ['init-files', 'add-files'].forEach(id => {
     document.getElementById(id).addEventListener('change', e => processFiles(e.target.files));
   });
@@ -1024,7 +1052,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.dataTransfer.files) processFiles(e.dataTransfer.files);
   });
 
-  // Library area drag-drop (add more ROMs)
+  // Library drag-drop
   const library = document.getElementById('library');
   library.addEventListener('dragover', e => { e.preventDefault(); library.classList.add('dragover'); });
   library.addEventListener('dragleave', () => library.classList.remove('dragover'));
@@ -1056,19 +1084,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Emulator controls
+  // Emulator
   document.getElementById('emu-back').addEventListener('click', closeEmulator);
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeEmulator();
   });
 
-  // Clear library
+  // Clear
   document.getElementById('clear-library').addEventListener('click', () => {
     if (loadedROMs.size === 0) return;
     if (confirm('Remove all ROMs from library?')) clearLibrary();
   });
 
-  // Load cached ROMs from IndexedDB
+  // Restore library
   loadFromCache();
 });
 </script>
