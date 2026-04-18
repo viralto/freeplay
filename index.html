@@ -956,6 +956,7 @@ body,html { margin:0; padding:0; background:#000; overflow:hidden; }
   color:#555;
   margin-top:14px;
   letter-spacing:1px;
+  transition:opacity 0.3s;
 }
 </style>
 </head><body>
@@ -966,8 +967,19 @@ body,html { margin:0; padding:0; background:#000; overflow:hidden; }
 </div>
 <div id="game"></div>
 <script>
+// Force WebGL to preserve drawing buffer so we can sample canvas pixels
+const origGetContext = HTMLCanvasElement.prototype.getContext;
+HTMLCanvasElement.prototype.getContext = function(type, opts) {
+  if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+    opts = opts || {};
+    opts.preserveDrawingBuffer = true;
+  }
+  return origGetContext.call(this, type, opts);
+};
+
 let romData = null;
 const romUrl = 'roms/${romFileName}';
+const bootStart = Date.now();
 
 const OrigXHR = XMLHttpRequest;
 function PatchedXHR() {
@@ -1014,6 +1026,57 @@ function hideLoader() {
   if (el) el.classList.add('hidden');
 }
 
+// Progressive messaging while we wait
+const BOOT_MESSAGES = [
+  [0,     'First launch may take a moment'],
+  [6000,  'Loading hardware'],
+  [15000, 'Still booting'],
+  [30000, 'Some classics take longer'],
+  [50000, 'Almost there...']
+];
+function updateBootMessage() {
+  const el = document.querySelector('.boot-sub');
+  if (!el) return;
+  const elapsed = Date.now() - bootStart;
+  let msg = BOOT_MESSAGES[0][1];
+  for (const [t, m] of BOOT_MESSAGES) if (elapsed >= t) msg = m;
+  if (el.textContent !== msg) {
+    el.style.opacity = '0';
+    setTimeout(() => { el.textContent = msg; el.style.opacity = '1'; }, 200);
+  }
+}
+
+// Poll the game canvas for actual rendered content.
+// Hide loader only when the emulated hardware produces a non-black frame.
+function checkCanvasRender() {
+  const canvas = document.querySelector('#game canvas');
+  const elapsed = Date.now() - bootStart;
+
+  if (canvas && canvas.width > 0 && canvas.height > 0) {
+    try {
+      const tmp = document.createElement('canvas');
+      tmp.width = 8; tmp.height = 8;
+      const ctx = tmp.getContext('2d');
+      ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, 8, 8);
+      const px = ctx.getImageData(0, 0, 8, 8).data;
+      let brightness = 0;
+      for (let i = 0; i < px.length; i += 4) {
+        brightness += px[i] + px[i+1] + px[i+2];
+      }
+      // 64 pixels x 3 channels. Threshold ~ average brightness > 4/255
+      if (brightness > 800) {
+        hideLoader();
+        return;
+      }
+    } catch(e) { /* keep polling */ }
+  }
+
+  updateBootMessage();
+
+  if (elapsed > 90000) { hideLoader(); return; }
+  setTimeout(checkCanvasRender, 400);
+}
+
 window.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'romData') {
     romData = e.data.data;
@@ -1028,16 +1091,14 @@ window.addEventListener('message', (e) => {
     window.EJS_language = 'en';
     window.EJS_color = e.data.accent || '#44ff88';
     window.EJS_gameID = e.data.gameId || '';
-    window.EJS_onGameStart = function() {
-      setTimeout(hideLoader, 300);
-    };
     const s = document.createElement('script');
     s.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
     document.body.appendChild(s);
   }
 });
-// Fallback: hide loader after 45s no matter what
-setTimeout(hideLoader, 45000);
+
+// Start watching for first rendered frame after a short delay (let core init)
+setTimeout(checkCanvasRender, 2500);
 
 window.parent.postMessage({ type: 'iframeReady' }, '*');
 ` + `<` + `/script>
