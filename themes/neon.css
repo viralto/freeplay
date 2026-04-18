@@ -1,0 +1,57 @@
+/* ==========================================
+   FREEPLAY · NEON · SYNTHWAVE
+   Miami 1985. Pink and cyan on deep purple.
+   ========================================== */
+@import url('https://fonts.googleapis.com/css2?family=Audiowide&family=Orbitron:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #0f0620;
+  --bg-panel: #14082a;
+  --bg-drop-border: #2a1560;
+
+  --text: #f0e0ff;
+  --text-dim: #a080c0;
+  --text-faint: #5040a0;
+  --text-ghost: #2a1560;
+
+  --accent: #ff00aa;
+  --accent-dim: #aa0077;
+  --highlight: #00ffee;
+  --highlight-dim: #006655;
+
+  --year-color: #ffff44;
+  --maker-color: #00ccff;
+
+  --card-bg: #180a38;
+  --card-bg-hover: #201050;
+  --card-border: #2a1560;
+  --card-border-hover: #ff00aa;
+  --card-radius: 4px;
+  --card-border-width: 1px;
+  --card-genre-strip: 4px;
+
+  --genre-shooter:  #ff0088;
+  --genre-fighter:  #ff3366;
+  --genre-beatemup: #cc00ff;
+  --genre-platform: #00ccff;
+  --genre-maze:     #00ffaa;
+  --genre-puzzle:   #ffff00;
+  --genre-racing:   #00ffff;
+  --genre-sports:   #88ff00;
+  --genre-misc:     #8866cc;
+
+  --font-body: 'Orbitron', 'Courier New', sans-serif;
+  --font-display: 'Audiowide', sans-serif;
+  --font-size-base: 15px;
+  --line-height: 1.5;
+  --letter-spacing-body: 0.5px;
+  --letter-spacing-display: 3px;
+  --text-transform-display: uppercase;
+  --logo-size: 1.8rem;
+
+  --scanline-opacity: 0;
+  --scanline-color: transparent;
+  --glow-logo: 0 0 30px rgba(255, 0, 170, 0.6), 0 0 60px rgba(255, 0, 170, 0.25);
+  --glow-card-hover: 0 0 12px rgba(255, 0, 170, 0.3);
+  --transition: 0.2s;
+}

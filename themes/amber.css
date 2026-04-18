@@ -1,0 +1,58 @@
+/* ==========================================
+   FREEPLAY · AMBER · VINTAGE TERMINAL
+   Warm amber monochrome. Cocktail cabinet vibes.
+   ========================================== */
+@import url('https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap');
+
+:root {
+  --bg: #1a0f00;
+  --bg-panel: #120a00;
+  --bg-drop-border: #4a2f00;
+
+  --text: #ffb000;
+  --text-dim: #aa7800;
+  --text-faint: #664000;
+  --text-ghost: #2a1800;
+
+  --accent: #ffcc33;
+  --accent-dim: #aa8822;
+  --highlight: #ff6633;
+  --highlight-dim: #551100;
+
+  --year-color: #ffcc33;
+  --maker-color: #cc9933;
+
+  --card-bg: #1f1100;
+  --card-bg-hover: #2a1800;
+  --card-border: #4a2f00;
+  --card-border-hover: #664000;
+  --card-radius: 0px;
+  --card-border-width: 1px;
+  --card-genre-strip: 3px;
+
+  /* Amber-toned genre palette */
+  --genre-shooter:  #ff8844;
+  --genre-fighter:  #ff6655;
+  --genre-beatemup: #ffaa44;
+  --genre-platform: #ffbb33;
+  --genre-maze:     #ccaa33;
+  --genre-puzzle:   #ffdd55;
+  --genre-racing:   #ddaa44;
+  --genre-sports:   #bb9922;
+  --genre-misc:     #886600;
+
+  --font-body: 'VT323', 'Courier New', monospace;
+  --font-display: 'Press Start 2P', monospace;
+  --font-size-base: 20px;
+  --line-height: 1.4;
+  --letter-spacing-body: normal;
+  --letter-spacing-display: 2px;
+  --text-transform-display: uppercase;
+  --logo-size: 1.4rem;
+
+  --scanline-opacity: 0.14;
+  --scanline-color: rgba(0, 0, 0, 0.18);
+  --glow-logo: 0 0 25px rgba(255, 176, 0, 0.5);
+  --glow-card-hover: none;
+  --transition: 0.15s;
+}

@@ -1,0 +1,57 @@
+/* ==========================================
+   FREEPLAY · PAPER · DAYTIME
+   Cream background. For when you can't see the CRT.
+   ========================================== */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap');
+
+:root {
+  --bg: #f5f1e8;
+  --bg-panel: #ebe4d5;
+  --bg-drop-border: #c5b8a0;
+
+  --text: #2a2420;
+  --text-dim: #6a5f55;
+  --text-faint: #8a8075;
+  --text-ghost: #c5b8a0;
+
+  --accent: #c43d2e;
+  --accent-dim: #8a2a1f;
+  --highlight: #0066aa;
+  --highlight-dim: #ccdde8;
+
+  --year-color: #8a5a2a;
+  --maker-color: #2a5588;
+
+  --card-bg: #ffffff;
+  --card-bg-hover: #faf6ec;
+  --card-border: #d5c9b5;
+  --card-border-hover: #8a8075;
+  --card-radius: 2px;
+  --card-border-width: 1px;
+  --card-genre-strip: 3px;
+
+  --genre-shooter:  #c43d2e;
+  --genre-fighter:  #a0335a;
+  --genre-beatemup: #6a2a88;
+  --genre-platform: #2a5588;
+  --genre-maze:     #2a8866;
+  --genre-puzzle:   #aa7722;
+  --genre-racing:   #2a7799;
+  --genre-sports:   #5a7722;
+  --genre-misc:     #8a8075;
+
+  --font-body: 'IBM Plex Mono', 'Courier New', monospace;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-size-base: 15px;
+  --line-height: 1.5;
+  --letter-spacing-body: normal;
+  --letter-spacing-display: -0.02em;
+  --text-transform-display: none;
+  --logo-size: 1.9rem;
+
+  --scanline-opacity: 0;
+  --scanline-color: transparent;
+  --glow-logo: none;
+  --glow-card-hover: 0 1px 3px rgba(42, 36, 32, 0.15);
+  --transition: 0.15s;
+}

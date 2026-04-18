@@ -1,0 +1,65 @@
+/* ==========================================
+   FREEPLAY · DEFAULT · CRT GREEN
+   Phosphor green on black. Classic monitor.
+   ========================================== */
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Silkscreen:wght@400;700&display=swap');
+
+:root {
+  /* Base */
+  --bg: #0a0a0e;
+  --bg-panel: #0a0a0e;
+  --bg-drop-border: #2a2a3a;
+
+  /* Text hierarchy */
+  --text: #e8e8e8;
+  --text-dim: #888;
+  --text-faint: #444;
+  --text-ghost: #282838;
+
+  /* Accents */
+  --accent: #44ff88;
+  --accent-dim: #22aa55;
+  --highlight: #ff4444;
+  --highlight-dim: #331111;
+
+  /* Metadata colors */
+  --year-color: #ffaa33;
+  --maker-color: #8888cc;
+
+  /* Cards */
+  --card-bg: #12121a;
+  --card-bg-hover: #16162a;
+  --card-border: #1e1e2a;
+  --card-border-hover: #1e1e2a;
+  --card-radius: 0px;
+  --card-border-width: 1px;
+  --card-genre-strip: 3px;
+
+  /* Genre accent colours */
+  --genre-shooter:  #ff6644;
+  --genre-fighter:  #ff4466;
+  --genre-beatemup: #cc44ff;
+  --genre-platform: #44aaff;
+  --genre-maze:     #44ffaa;
+  --genre-puzzle:   #ffcc44;
+  --genre-racing:   #44ddff;
+  --genre-sports:   #88cc44;
+  --genre-misc:     #888888;
+
+  /* Typography */
+  --font-body: 'Share Tech Mono', 'Courier New', monospace;
+  --font-display: 'Silkscreen', monospace;
+  --font-size-base: 16px;
+  --line-height: 1.5;
+  --letter-spacing-body: normal;
+  --letter-spacing-display: 4px;
+  --text-transform-display: none;
+  --logo-size: 2rem;
+
+  /* Effects */
+  --scanline-opacity: 0.04;
+  --scanline-color: rgba(0, 0, 0, 0.04);
+  --glow-logo: 0 0 20px rgba(68, 255, 136, 0.3);
+  --glow-card-hover: none;
+  --transition: 0.15s;
+}
