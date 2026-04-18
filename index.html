@@ -928,9 +928,10 @@ function buildEmulatorPage(romFileName) {
 body,html { margin:0; padding:0; background:#000; overflow:hidden; }
 #game { width:100%; height:100vh; }
 
-#boot-loader, #start-hint {
+#start-hint {
   position:fixed; inset:0;
-  display:flex; flex-direction:column;
+  display:none;
+  flex-direction:column;
   align-items:center; justify-content:center;
   z-index:100;
   font-family:'Courier New',monospace;
@@ -938,21 +939,10 @@ body,html { margin:0; padding:0; background:#000; overflow:hidden; }
   transition:opacity 0.4s ease;
   pointer-events:none;
   text-align:center;
+  background:transparent;
 }
-#boot-loader { background:#000; }
-#start-hint { background:transparent; display:none; }
 #start-hint.visible { display:flex; }
-#boot-loader.hidden, #start-hint.hidden { opacity:0; }
-
-.spinner {
-  width:44px; height:44px;
-  border:2px solid rgba(255,255,255,0.08);
-  border-top-color:var(--loader-accent,#44ff88);
-  border-radius:50%;
-  animation:spin 0.9s linear infinite;
-  margin-bottom:24px;
-}
-@keyframes spin { to { transform:rotate(360deg); } }
+#start-hint.hidden { opacity:0; }
 
 .ready-text {
   font-size:28px;
@@ -974,16 +964,8 @@ body,html { margin:0; padding:0; background:#000; overflow:hidden; }
   margin-top:18px;
   text-shadow:0 0 8px rgba(0,0,0,0.9);
 }
-
-.boot-text { font-size:13px; letter-spacing:6px; text-transform:uppercase; }
-.boot-sub { font-size:10px; color:#555; margin-top:14px; letter-spacing:1px; }
 </style>
 </head><body>
-<div id="boot-loader">
-  <div class="spinner"></div>
-  <div class="boot-text">Loading</div>
-  <div class="boot-sub">Downloading emulator core</div>
-</div>
 <div id="start-hint">
   <div class="ready-text">Ready Player 1</div>
   <div class="ready-sub">Click to begin</div>
@@ -1043,10 +1025,6 @@ window.fetch = function(url, opts) {
   return origFetch.call(this, url, opts);
 };
 
-function hideBootLoader() {
-  const el = document.getElementById('boot-loader');
-  if (el) el.classList.add('hidden');
-}
 function showStartHint() {
   const el = document.getElementById('start-hint');
   if (el) el.classList.add('visible');
@@ -1056,7 +1034,7 @@ function hideStartHint() {
   if (el) el.classList.add('hidden');
 }
 
-// Watch canvas. When game actually renders a frame, hide the hint.
+// Watch canvas for the first rendered frame (non-black). Hide hint when found.
 function watchCanvas(start) {
   const canvas = document.querySelector('#game canvas');
   const elapsed = Date.now() - start;
@@ -1092,12 +1070,19 @@ window.addEventListener('message', (e) => {
     window.EJS_gameID = e.data.gameId || '';
 
     window.EJS_ready = function() {
-      // Core is loaded. Hide boot spinner, show "Ready Player 1" hint.
-      setTimeout(() => {
-        hideBootLoader();
-        showStartHint();
-        watchCanvas(Date.now());
-      }, 200);
+      // EJS_ready fires before decompression completes.
+      // Wait for the game canvas to actually exist with real dimensions —
+      // that's when a click will actually do something.
+      const waitForCanvas = () => {
+        const canvas = document.querySelector('#game canvas');
+        if (canvas && canvas.width > 0 && canvas.height > 0) {
+          showStartHint();
+          watchCanvas(Date.now());
+        } else {
+          setTimeout(waitForCanvas, 250);
+        }
+      };
+      waitForCanvas();
     };
 
     const s = document.createElement('script');
@@ -1105,13 +1090,6 @@ window.addEventListener('message', (e) => {
     document.body.appendChild(s);
   }
 });
-
-// Fallback: if EJS_ready never fires, still swap to hint after 30s
-setTimeout(() => {
-  hideBootLoader();
-  showStartHint();
-  watchCanvas(Date.now());
-}, 30000);
 
 window.parent.postMessage({ type: 'iframeReady' }, '*');
 ` + `<` + `/script>
