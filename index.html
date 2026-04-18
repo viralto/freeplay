@@ -924,9 +924,47 @@ function buildEmulatorPage(romFileName) {
   return `<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8">
-<style>body,html{margin:0;padding:0;background:#000;overflow:hidden}</style>
+<style>
+body,html { margin:0; padding:0; background:#000; overflow:hidden; }
+#game { width:100%; height:100vh; }
+#boot-loader {
+  position:fixed; inset:0; background:#000;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  z-index:100;
+  font-family:'Courier New',monospace;
+  color:var(--loader-accent,#44ff88);
+  transition:opacity 0.4s ease;
+}
+#boot-loader.hidden { opacity:0; pointer-events:none; }
+.spinner {
+  width:44px; height:44px;
+  border:2px solid rgba(255,255,255,0.08);
+  border-top-color:var(--loader-accent,#44ff88);
+  border-radius:50%;
+  animation:spin 0.9s linear infinite;
+  margin-bottom:24px;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+.boot-text {
+  font-size:13px;
+  letter-spacing:6px;
+  text-transform:uppercase;
+}
+.boot-sub {
+  font-size:10px;
+  color:#555;
+  margin-top:14px;
+  letter-spacing:1px;
+}
+</style>
 </head><body>
-<div style="width:100%;height:100vh"><div id="game"></div></div>
+<div id="boot-loader">
+  <div class="spinner"></div>
+  <div class="boot-text">Booting</div>
+  <div class="boot-sub">First launch may take a moment</div>
+</div>
+<div id="game"></div>
 <script>
 let romData = null;
 const romUrl = 'roms/${romFileName}';
@@ -971,22 +1009,36 @@ window.fetch = function(url, opts) {
   return origFetch.call(this, url, opts);
 };
 
+function hideLoader() {
+  const el = document.getElementById('boot-loader');
+  if (el) el.classList.add('hidden');
+}
+
 window.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'romData') {
     romData = e.data.data;
+    if (e.data.accent) {
+      document.documentElement.style.setProperty('--loader-accent', e.data.accent);
+    }
     window.EJS_player = '#game';
     window.EJS_core = 'fbneo';
     window.EJS_gameUrl = romUrl;
     window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
     window.EJS_startOnLoaded = true;
     window.EJS_language = 'en';
-    window.EJS_color = '#44ff88';
+    window.EJS_color = e.data.accent || '#44ff88';
     window.EJS_gameID = e.data.gameId || '';
+    window.EJS_onGameStart = function() {
+      setTimeout(hideLoader, 300);
+    };
     const s = document.createElement('script');
     s.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
     document.body.appendChild(s);
   }
 });
+// Fallback: hide loader after 45s no matter what
+setTimeout(hideLoader, 45000);
+
 window.parent.postMessage({ type: 'iframeReady' }, '*');
 ` + `<` + `/script>
 </body></html>`;
@@ -1011,10 +1063,13 @@ async function launchGame(romId) {
   const onMessage = (e) => {
     if (e.data && e.data.type === 'iframeReady') {
       window.removeEventListener('message', onMessage);
+      const accent = getComputedStyle(document.documentElement)
+        .getPropertyValue('--accent').trim() || '#44ff88';
       iframe.contentWindow.postMessage({
         type: 'romData',
         data: arrayBuffer,
-        gameId: romId
+        gameId: romId,
+        accent: accent
       }, '*');
     }
   };
