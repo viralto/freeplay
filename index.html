@@ -927,8 +927,9 @@ function buildEmulatorPage(romFileName) {
 <style>
 body,html { margin:0; padding:0; background:#000; overflow:hidden; }
 #game { width:100%; height:100vh; }
-#boot-loader {
-  position:fixed; inset:0; background:#000;
+
+#boot-loader, #start-hint {
+  position:fixed; inset:0;
   display:flex; flex-direction:column;
   align-items:center; justify-content:center;
   z-index:100;
@@ -936,23 +937,12 @@ body,html { margin:0; padding:0; background:#000; overflow:hidden; }
   color:var(--loader-accent,#44ff88);
   transition:opacity 0.4s ease;
   pointer-events:none;
-}
-#boot-loader.hidden { opacity:0; pointer-events:none !important; }
-#boot-loader.ready {
-  background:rgba(0,0,0,0.85);
-  cursor:pointer;
-  pointer-events:auto;
-}
-
-.loader-content {
-  display:none;
-  flex-direction:column;
-  align-items:center;
   text-align:center;
-  user-select:none;
 }
-#boot-loader:not(.ready) .loading-state { display:flex; }
-#boot-loader.ready .ready-state { display:flex; }
+#boot-loader { background:#000; }
+#start-hint { background:transparent; display:none; }
+#start-hint.visible { display:flex; }
+#boot-loader.hidden, #start-hint.hidden { opacity:0; }
 
 .spinner {
   width:44px; height:44px;
@@ -964,22 +954,25 @@ body,html { margin:0; padding:0; background:#000; overflow:hidden; }
 }
 @keyframes spin { to { transform:rotate(360deg); } }
 
-.play-icon {
-  font-size:72px;
-  line-height:1;
-  color:var(--loader-accent,#44ff88);
-  margin-bottom:22px;
-  animation:pulse 2s ease-in-out infinite;
-  transition:transform 0.2s ease;
+.ready-text {
+  font-size:28px;
+  letter-spacing:8px;
+  font-weight:700;
+  text-transform:uppercase;
+  text-shadow:0 0 16px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1);
+  animation:flash 1.2s ease-in-out infinite;
+  user-select:none;
 }
-@keyframes pulse {
-  0%,100% { opacity:0.75; transform:scale(1); }
-  50% { opacity:1; transform:scale(1.04); }
+@keyframes flash {
+  0%,100% { opacity:0.65; }
+  50% { opacity:1; }
 }
-#boot-loader.ready:hover .play-icon {
-  transform:scale(1.12);
-  opacity:1;
-  animation:none;
+.ready-sub {
+  font-size:11px;
+  letter-spacing:3px;
+  color:rgba(255,255,255,0.6);
+  margin-top:18px;
+  text-shadow:0 0 8px rgba(0,0,0,0.9);
 }
 
 .boot-text { font-size:13px; letter-spacing:6px; text-transform:uppercase; }
@@ -987,47 +980,17 @@ body,html { margin:0; padding:0; background:#000; overflow:hidden; }
 </style>
 </head><body>
 <div id="boot-loader">
-  <div class="loader-content loading-state">
-    <div class="spinner"></div>
-    <div class="boot-text">Loading</div>
-    <div class="boot-sub">Downloading emulator core</div>
-  </div>
-  <div class="loader-content ready-state">
-    <div class="play-icon">&#9654;</div>
-    <div class="boot-text">Click to Play</div>
-    <div class="boot-sub">Click anywhere to start</div>
-  </div>
+  <div class="spinner"></div>
+  <div class="boot-text">Loading</div>
+  <div class="boot-sub">Downloading emulator core</div>
+</div>
+<div id="start-hint">
+  <div class="ready-text">Ready Player 1</div>
+  <div class="ready-sub">Click to begin</div>
 </div>
 <div id="game"></div>
 <script>
-// ==========================================
-// AudioContext tracking (run BEFORE EJS loads)
-// ==========================================
-const audioContexts = new Set();
-(function patchAudioContext() {
-  ['AudioContext', 'webkitAudioContext'].forEach(name => {
-    const Orig = window[name];
-    if (!Orig) return;
-    const Patched = class extends Orig {
-      constructor(...args) {
-        super(...args);
-        audioContexts.add(this);
-      }
-    };
-    Patched.prototype = Orig.prototype;
-    window[name] = Patched;
-  });
-})();
-
-function resumeAllAudio() {
-  audioContexts.forEach(ctx => {
-    if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
-  });
-}
-
-// Force WebGL to preserve drawing buffer
+// Force WebGL to preserve drawing buffer so we can sample canvas pixels
 const origGetContext = HTMLCanvasElement.prototype.getContext;
 HTMLCanvasElement.prototype.getContext = function(type, opts) {
   if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
@@ -1040,7 +1003,6 @@ HTMLCanvasElement.prototype.getContext = function(type, opts) {
 let romData = null;
 const romUrl = 'roms/${romFileName}';
 
-// XHR / fetch interception
 const OrigXHR = XMLHttpRequest;
 function PatchedXHR() {
   const xhr = new OrigXHR();
@@ -1081,25 +1043,37 @@ window.fetch = function(url, opts) {
   return origFetch.call(this, url, opts);
 };
 
-function showClickToPlay() {
-  const loader = document.getElementById('boot-loader');
-  if (loader) loader.classList.add('ready');
+function hideBootLoader() {
+  const el = document.getElementById('boot-loader');
+  if (el) el.classList.add('hidden');
+}
+function showStartHint() {
+  const el = document.getElementById('start-hint');
+  if (el) el.classList.add('visible');
+}
+function hideStartHint() {
+  const el = document.getElementById('start-hint');
+  if (el) el.classList.add('hidden');
 }
 
-function hideLoader() {
-  const loader = document.getElementById('boot-loader');
-  if (loader) {
-    loader.classList.remove('ready');
-    loader.classList.add('hidden');
+// Watch canvas. When game actually renders a frame, hide the hint.
+function watchCanvas(start) {
+  const canvas = document.querySelector('#game canvas');
+  const elapsed = Date.now() - start;
+  if (canvas && canvas.width > 0 && canvas.height > 0) {
+    try {
+      const tmp = document.createElement('canvas');
+      tmp.width = 8; tmp.height = 8;
+      const ctx = tmp.getContext('2d');
+      ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, 8, 8);
+      const px = ctx.getImageData(0, 0, 8, 8).data;
+      let brightness = 0;
+      for (let i = 0; i < px.length; i += 4) brightness += px[i] + px[i+1] + px[i+2];
+      if (brightness > 800) { hideStartHint(); return; }
+    } catch(e) {}
   }
-}
-
-// User clicks overlay → resume audio + hide
-function onUserStart(e) {
-  const loader = document.getElementById('boot-loader');
-  if (!loader || !loader.classList.contains('ready')) return;
-  resumeAllAudio();
-  hideLoader();
+  if (elapsed > 120000) { hideStartHint(); return; }
+  setTimeout(() => watchCanvas(start), 400);
 }
 
 window.addEventListener('message', (e) => {
@@ -1112,14 +1086,18 @@ window.addEventListener('message', (e) => {
     window.EJS_core = 'fbneo';
     window.EJS_gameUrl = romUrl;
     window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
-    window.EJS_startOnLoaded = true;  // auto-start; we handle the gesture ourselves
+    window.EJS_startOnLoaded = true;
     window.EJS_language = 'en';
     window.EJS_color = e.data.accent || '#44ff88';
     window.EJS_gameID = e.data.gameId || '';
 
-    // When EJS is ready, switch to Click-to-Play state
     window.EJS_ready = function() {
-      setTimeout(showClickToPlay, 300);
+      // Core is loaded. Hide boot spinner, show "Ready Player 1" hint.
+      setTimeout(() => {
+        hideBootLoader();
+        showStartHint();
+        watchCanvas(Date.now());
+      }, 200);
     };
 
     const s = document.createElement('script');
@@ -1128,13 +1106,12 @@ window.addEventListener('message', (e) => {
   }
 });
 
-// Click handler on the overlay
-document.addEventListener('click', onUserStart, { capture: false });
-document.addEventListener('touchend', onUserStart, { capture: false });
-document.addEventListener('keydown', onUserStart, { capture: false });
-
-// Fallback: show click-to-play after 30s even if EJS_ready never fires
-setTimeout(showClickToPlay, 30000);
+// Fallback: if EJS_ready never fires, still swap to hint after 30s
+setTimeout(() => {
+  hideBootLoader();
+  showStartHint();
+  watchCanvas(Date.now());
+}, 30000);
 
 window.parent.postMessage({ type: 'iframeReady' }, '*');
 ` + `<` + `/script>
@@ -1155,6 +1132,7 @@ async function launchGame(romId) {
   const arrayBuffer = await rom.file.arrayBuffer();
   const iframe = document.createElement('iframe');
   iframe.setAttribute('allow', 'autoplay');
+  iframe.setAttribute('tabindex', '0');
   iframe.srcdoc = buildEmulatorPage(rom.file.name);
 
   const onMessage = (e) => {
@@ -1174,6 +1152,16 @@ async function launchGame(romId) {
 
   container.appendChild(iframe);
   overlay.style.display = 'flex';
+
+  // Give the iframe focus so keyboard and render loop engage immediately
+  iframe.addEventListener('load', () => {
+    iframe.focus();
+    try { iframe.contentWindow.focus(); } catch(e) {}
+  });
+  setTimeout(() => {
+    iframe.focus();
+    try { iframe.contentWindow.focus(); } catch(e) {}
+  }, 100);
 }
 
 function closeEmulator() {
