@@ -937,6 +937,35 @@ body,html { margin:0; padding:0; background:#000; overflow:hidden; }
   transition:opacity 0.4s ease;
 }
 #boot-loader.hidden { opacity:0; pointer-events:none; }
+#boot-loader.ready { cursor:pointer; }
+.loader-content {
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+}
+#boot-loader.ready .click-state { display:flex; }
+#boot-loader.booting .booting-state { display:flex; }
+
+.play-icon {
+  font-size:72px;
+  line-height:1;
+  color:var(--loader-accent,#44ff88);
+  margin-bottom:22px;
+  animation:pulse 2s ease-in-out infinite;
+  transition:transform 0.2s ease;
+  user-select:none;
+}
+@keyframes pulse {
+  0%,100% { opacity:0.7; transform:scale(1); }
+  50% { opacity:1; transform:scale(1.04); }
+}
+#boot-loader.ready:hover .play-icon {
+  transform:scale(1.12);
+  opacity:1;
+  animation:none;
+}
+
 .spinner {
   width:44px; height:44px;
   border:2px solid rgba(255,255,255,0.08);
@@ -961,9 +990,16 @@ body,html { margin:0; padding:0; background:#000; overflow:hidden; }
 </style>
 </head><body>
 <div id="boot-loader">
-  <div class="spinner"></div>
-  <div class="boot-text">Booting</div>
-  <div class="boot-sub">First launch may take a moment</div>
+  <div class="loader-content click-state">
+    <div class="play-icon">&#9654;</div>
+    <div class="boot-text">Click to Start</div>
+    <div class="boot-sub">Click anywhere to begin</div>
+  </div>
+  <div class="loader-content booting-state">
+    <div class="spinner"></div>
+    <div class="boot-text">Booting</div>
+    <div class="boot-sub">First launch may take a moment</div>
+  </div>
 </div>
 <div id="game"></div>
 <script>
@@ -978,9 +1014,11 @@ HTMLCanvasElement.prototype.getContext = function(type, opts) {
 };
 
 let romData = null;
+let started = false;
+let bootStart = 0;
 const romUrl = 'roms/${romFileName}';
-const bootStart = Date.now();
 
+// XHR / fetch interception
 const OrigXHR = XMLHttpRequest;
 function PatchedXHR() {
   const xhr = new OrigXHR();
@@ -1026,7 +1064,6 @@ function hideLoader() {
   if (el) el.classList.add('hidden');
 }
 
-// Progressive messaging while we wait
 const BOOT_MESSAGES = [
   [0,     'First launch may take a moment'],
   [6000,  'Loading hardware'],
@@ -1035,7 +1072,7 @@ const BOOT_MESSAGES = [
   [50000, 'Almost there...']
 ];
 function updateBootMessage() {
-  const el = document.querySelector('.boot-sub');
+  const el = document.querySelector('.booting-state .boot-sub');
   if (!el) return;
   const elapsed = Date.now() - bootStart;
   let msg = BOOT_MESSAGES[0][1];
@@ -1046,8 +1083,6 @@ function updateBootMessage() {
   }
 }
 
-// Poll the game canvas for actual rendered content.
-// Hide loader only when the emulated hardware produces a non-black frame.
 function checkCanvasRender() {
   const canvas = document.querySelector('#game canvas');
   const elapsed = Date.now() - bootStart;
@@ -1063,12 +1098,8 @@ function checkCanvasRender() {
       for (let i = 0; i < px.length; i += 4) {
         brightness += px[i] + px[i+1] + px[i+2];
       }
-      // 64 pixels x 3 channels. Threshold ~ average brightness > 4/255
-      if (brightness > 800) {
-        hideLoader();
-        return;
-      }
-    } catch(e) { /* keep polling */ }
+      if (brightness > 800) { hideLoader(); return; }
+    } catch(e) {}
   }
 
   updateBootMessage();
@@ -1077,28 +1108,49 @@ function checkCanvasRender() {
   setTimeout(checkCanvasRender, 400);
 }
 
+// Called when user clicks to start
+function startBoot() {
+  if (started || !romData) return;
+  started = true;
+
+  const loader = document.getElementById('boot-loader');
+  loader.classList.remove('ready');
+  loader.classList.add('booting');
+  bootStart = Date.now();
+
+  window.EJS_player = '#game';
+  window.EJS_core = 'fbneo';
+  window.EJS_gameUrl = romUrl;
+  window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+  window.EJS_startOnLoaded = true;
+  window.EJS_language = 'en';
+  window.EJS_gameID = window._gameId || '';
+
+  const s = document.createElement('script');
+  s.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+  document.body.appendChild(s);
+
+  setTimeout(checkCanvasRender, 2500);
+}
+
+// Receive ROM data from parent, then show Click to Start
 window.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'romData') {
     romData = e.data.data;
+    window._gameId = e.data.gameId || '';
     if (e.data.accent) {
       document.documentElement.style.setProperty('--loader-accent', e.data.accent);
+      window.EJS_color = e.data.accent;
     }
-    window.EJS_player = '#game';
-    window.EJS_core = 'fbneo';
-    window.EJS_gameUrl = romUrl;
-    window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
-    window.EJS_startOnLoaded = true;
-    window.EJS_language = 'en';
-    window.EJS_color = e.data.accent || '#44ff88';
-    window.EJS_gameID = e.data.gameId || '';
-    const s = document.createElement('script');
-    s.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
-    document.body.appendChild(s);
+    // ROM ready: show click-to-start prompt
+    document.getElementById('boot-loader').classList.add('ready');
   }
 });
 
-// Start watching for first rendered frame after a short delay (let core init)
-setTimeout(checkCanvasRender, 2500);
+// Any click or key/tap starts the boot
+['click', 'touchend', 'keydown'].forEach(ev => {
+  document.addEventListener(ev, startBoot, { once: false });
+});
 
 window.parent.postMessage({ type: 'iframeReady' }, '*');
 ` + `<` + `/script>
