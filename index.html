@@ -937,7 +937,23 @@ body,html { margin:0; padding:0; background:#000; overflow:hidden; }
   transition:opacity 0.4s ease;
   pointer-events:none;
 }
-#boot-loader.hidden { opacity:0; }
+#boot-loader.hidden { opacity:0; pointer-events:none !important; }
+#boot-loader.ready {
+  background:rgba(0,0,0,0.85);
+  cursor:pointer;
+  pointer-events:auto;
+}
+
+.loader-content {
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  user-select:none;
+}
+#boot-loader:not(.ready) .loading-state { display:flex; }
+#boot-loader.ready .ready-state { display:flex; }
+
 .spinner {
   width:44px; height:44px;
   border:2px solid rgba(255,255,255,0.08);
@@ -947,28 +963,71 @@ body,html { margin:0; padding:0; background:#000; overflow:hidden; }
   margin-bottom:24px;
 }
 @keyframes spin { to { transform:rotate(360deg); } }
-.boot-text {
-  font-size:13px;
-  letter-spacing:6px;
-  text-transform:uppercase;
+
+.play-icon {
+  font-size:72px;
+  line-height:1;
+  color:var(--loader-accent,#44ff88);
+  margin-bottom:22px;
+  animation:pulse 2s ease-in-out infinite;
+  transition:transform 0.2s ease;
 }
-.boot-sub {
-  font-size:10px;
-  color:#555;
-  margin-top:14px;
-  letter-spacing:1px;
-  transition:opacity 0.3s;
+@keyframes pulse {
+  0%,100% { opacity:0.75; transform:scale(1); }
+  50% { opacity:1; transform:scale(1.04); }
 }
+#boot-loader.ready:hover .play-icon {
+  transform:scale(1.12);
+  opacity:1;
+  animation:none;
+}
+
+.boot-text { font-size:13px; letter-spacing:6px; text-transform:uppercase; }
+.boot-sub { font-size:10px; color:#555; margin-top:14px; letter-spacing:1px; }
 </style>
 </head><body>
 <div id="boot-loader">
-  <div class="spinner"></div>
-  <div class="boot-text">Loading</div>
-  <div class="boot-sub">Downloading emulator core</div>
+  <div class="loader-content loading-state">
+    <div class="spinner"></div>
+    <div class="boot-text">Loading</div>
+    <div class="boot-sub">Downloading emulator core</div>
+  </div>
+  <div class="loader-content ready-state">
+    <div class="play-icon">&#9654;</div>
+    <div class="boot-text">Click to Play</div>
+    <div class="boot-sub">Click anywhere to start</div>
+  </div>
 </div>
 <div id="game"></div>
 <script>
-// Force WebGL to preserve drawing buffer so we can sample canvas pixels
+// ==========================================
+// AudioContext tracking (run BEFORE EJS loads)
+// ==========================================
+const audioContexts = new Set();
+(function patchAudioContext() {
+  ['AudioContext', 'webkitAudioContext'].forEach(name => {
+    const Orig = window[name];
+    if (!Orig) return;
+    const Patched = class extends Orig {
+      constructor(...args) {
+        super(...args);
+        audioContexts.add(this);
+      }
+    };
+    Patched.prototype = Orig.prototype;
+    window[name] = Patched;
+  });
+})();
+
+function resumeAllAudio() {
+  audioContexts.forEach(ctx => {
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+  });
+}
+
+// Force WebGL to preserve drawing buffer
 const origGetContext = HTMLCanvasElement.prototype.getContext;
 HTMLCanvasElement.prototype.getContext = function(type, opts) {
   if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
@@ -980,7 +1039,6 @@ HTMLCanvasElement.prototype.getContext = function(type, opts) {
 
 let romData = null;
 const romUrl = 'roms/${romFileName}';
-const bootStart = Date.now();
 
 // XHR / fetch interception
 const OrigXHR = XMLHttpRequest;
@@ -1023,29 +1081,25 @@ window.fetch = function(url, opts) {
   return origFetch.call(this, url, opts);
 };
 
-function hideLoader() {
-  const el = document.getElementById('boot-loader');
-  if (el) el.classList.add('hidden');
+function showClickToPlay() {
+  const loader = document.getElementById('boot-loader');
+  if (loader) loader.classList.add('ready');
 }
 
-// Fallback: watch canvas for actual content if EJS_ready never fires
-function watchCanvas() {
-  const canvas = document.querySelector('#game canvas');
-  const elapsed = Date.now() - bootStart;
-  if (canvas && canvas.width > 0 && canvas.height > 0) {
-    try {
-      const tmp = document.createElement('canvas');
-      tmp.width = 8; tmp.height = 8;
-      const ctx = tmp.getContext('2d');
-      ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, 8, 8);
-      const px = ctx.getImageData(0, 0, 8, 8).data;
-      let brightness = 0;
-      for (let i = 0; i < px.length; i += 4) brightness += px[i] + px[i+1] + px[i+2];
-      if (brightness > 800) { hideLoader(); return; }
-    } catch(e) {}
+function hideLoader() {
+  const loader = document.getElementById('boot-loader');
+  if (loader) {
+    loader.classList.remove('ready');
+    loader.classList.add('hidden');
   }
-  if (elapsed > 60000) { hideLoader(); return; }
-  setTimeout(watchCanvas, 500);
+}
+
+// User clicks overlay → resume audio + hide
+function onUserStart(e) {
+  const loader = document.getElementById('boot-loader');
+  if (!loader || !loader.classList.contains('ready')) return;
+  resumeAllAudio();
+  hideLoader();
 }
 
 window.addEventListener('message', (e) => {
@@ -1058,26 +1112,29 @@ window.addEventListener('message', (e) => {
     window.EJS_core = 'fbneo';
     window.EJS_gameUrl = romUrl;
     window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+    window.EJS_startOnLoaded = true;  // auto-start; we handle the gesture ourselves
     window.EJS_language = 'en';
     window.EJS_color = e.data.accent || '#44ff88';
     window.EJS_gameID = e.data.gameId || '';
-    // Do NOT set EJS_startOnLoaded. Let EmulatorJS show its native
-    // Play button - the click on that button is the user gesture that
-    // unlocks AudioContext, which FBNeo needs to run at full speed.
 
-    // Hide our loader as soon as EmulatorJS is ready to show its UI
+    // When EJS is ready, switch to Click-to-Play state
     window.EJS_ready = function() {
-      setTimeout(hideLoader, 200);
+      setTimeout(showClickToPlay, 300);
     };
 
     const s = document.createElement('script');
     s.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
     document.body.appendChild(s);
-
-    // Canvas sampling as fallback in case EJS_ready never fires
-    setTimeout(watchCanvas, 3000);
   }
 });
+
+// Click handler on the overlay
+document.addEventListener('click', onUserStart, { capture: false });
+document.addEventListener('touchend', onUserStart, { capture: false });
+document.addEventListener('keydown', onUserStart, { capture: false });
+
+// Fallback: show click-to-play after 30s even if EJS_ready never fires
+setTimeout(showClickToPlay, 30000);
 
 window.parent.postMessage({ type: 'iframeReady' }, '*');
 ` + `<` + `/script>
