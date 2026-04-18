@@ -935,37 +935,9 @@ body,html { margin:0; padding:0; background:#000; overflow:hidden; }
   font-family:'Courier New',monospace;
   color:var(--loader-accent,#44ff88);
   transition:opacity 0.4s ease;
+  pointer-events:none;
 }
-#boot-loader.hidden { opacity:0; pointer-events:none; }
-#boot-loader.ready { cursor:pointer; }
-.loader-content {
-  display:none;
-  flex-direction:column;
-  align-items:center;
-  text-align:center;
-}
-#boot-loader.ready .click-state { display:flex; }
-#boot-loader.booting .booting-state { display:flex; }
-
-.play-icon {
-  font-size:72px;
-  line-height:1;
-  color:var(--loader-accent,#44ff88);
-  margin-bottom:22px;
-  animation:pulse 2s ease-in-out infinite;
-  transition:transform 0.2s ease;
-  user-select:none;
-}
-@keyframes pulse {
-  0%,100% { opacity:0.7; transform:scale(1); }
-  50% { opacity:1; transform:scale(1.04); }
-}
-#boot-loader.ready:hover .play-icon {
-  transform:scale(1.12);
-  opacity:1;
-  animation:none;
-}
-
+#boot-loader.hidden { opacity:0; }
 .spinner {
   width:44px; height:44px;
   border:2px solid rgba(255,255,255,0.08);
@@ -990,16 +962,9 @@ body,html { margin:0; padding:0; background:#000; overflow:hidden; }
 </style>
 </head><body>
 <div id="boot-loader">
-  <div class="loader-content click-state">
-    <div class="play-icon">&#9654;</div>
-    <div class="boot-text">Click to Start</div>
-    <div class="boot-sub">Click anywhere to begin</div>
-  </div>
-  <div class="loader-content booting-state">
-    <div class="spinner"></div>
-    <div class="boot-text">Booting</div>
-    <div class="boot-sub">First launch may take a moment</div>
-  </div>
+  <div class="spinner"></div>
+  <div class="boot-text">Loading</div>
+  <div class="boot-sub">Downloading emulator core</div>
 </div>
 <div id="game"></div>
 <script>
@@ -1014,9 +979,8 @@ HTMLCanvasElement.prototype.getContext = function(type, opts) {
 };
 
 let romData = null;
-let started = false;
-let bootStart = 0;
 const romUrl = 'roms/${romFileName}';
+const bootStart = Date.now();
 
 // XHR / fetch interception
 const OrigXHR = XMLHttpRequest;
@@ -1064,29 +1028,10 @@ function hideLoader() {
   if (el) el.classList.add('hidden');
 }
 
-const BOOT_MESSAGES = [
-  [0,     'First launch may take a moment'],
-  [6000,  'Loading hardware'],
-  [15000, 'Still booting'],
-  [30000, 'Some classics take longer'],
-  [50000, 'Almost there...']
-];
-function updateBootMessage() {
-  const el = document.querySelector('.booting-state .boot-sub');
-  if (!el) return;
-  const elapsed = Date.now() - bootStart;
-  let msg = BOOT_MESSAGES[0][1];
-  for (const [t, m] of BOOT_MESSAGES) if (elapsed >= t) msg = m;
-  if (el.textContent !== msg) {
-    el.style.opacity = '0';
-    setTimeout(() => { el.textContent = msg; el.style.opacity = '1'; }, 200);
-  }
-}
-
-function checkCanvasRender() {
+// Fallback: watch canvas for actual content if EJS_ready never fires
+function watchCanvas() {
   const canvas = document.querySelector('#game canvas');
   const elapsed = Date.now() - bootStart;
-
   if (canvas && canvas.width > 0 && canvas.height > 0) {
     try {
       const tmp = document.createElement('canvas');
@@ -1095,61 +1040,43 @@ function checkCanvasRender() {
       ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, 8, 8);
       const px = ctx.getImageData(0, 0, 8, 8).data;
       let brightness = 0;
-      for (let i = 0; i < px.length; i += 4) {
-        brightness += px[i] + px[i+1] + px[i+2];
-      }
+      for (let i = 0; i < px.length; i += 4) brightness += px[i] + px[i+1] + px[i+2];
       if (brightness > 800) { hideLoader(); return; }
     } catch(e) {}
   }
-
-  updateBootMessage();
-
-  if (elapsed > 90000) { hideLoader(); return; }
-  setTimeout(checkCanvasRender, 400);
+  if (elapsed > 60000) { hideLoader(); return; }
+  setTimeout(watchCanvas, 500);
 }
 
-// Called when user clicks to start
-function startBoot() {
-  if (started || !romData) return;
-  started = true;
-
-  const loader = document.getElementById('boot-loader');
-  loader.classList.remove('ready');
-  loader.classList.add('booting');
-  bootStart = Date.now();
-
-  window.EJS_player = '#game';
-  window.EJS_core = 'fbneo';
-  window.EJS_gameUrl = romUrl;
-  window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
-  window.EJS_startOnLoaded = true;
-  window.EJS_language = 'en';
-  window.EJS_gameID = window._gameId || '';
-
-  const s = document.createElement('script');
-  s.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
-  document.body.appendChild(s);
-
-  setTimeout(checkCanvasRender, 2500);
-}
-
-// Receive ROM data from parent, then show Click to Start
 window.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'romData') {
     romData = e.data.data;
-    window._gameId = e.data.gameId || '';
     if (e.data.accent) {
       document.documentElement.style.setProperty('--loader-accent', e.data.accent);
-      window.EJS_color = e.data.accent;
     }
-    // ROM ready: show click-to-start prompt
-    document.getElementById('boot-loader').classList.add('ready');
-  }
-});
+    window.EJS_player = '#game';
+    window.EJS_core = 'fbneo';
+    window.EJS_gameUrl = romUrl;
+    window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+    window.EJS_language = 'en';
+    window.EJS_color = e.data.accent || '#44ff88';
+    window.EJS_gameID = e.data.gameId || '';
+    // Do NOT set EJS_startOnLoaded. Let EmulatorJS show its native
+    // Play button - the click on that button is the user gesture that
+    // unlocks AudioContext, which FBNeo needs to run at full speed.
 
-// Any click or key/tap starts the boot
-['click', 'touchend', 'keydown'].forEach(ev => {
-  document.addEventListener(ev, startBoot, { once: false });
+    // Hide our loader as soon as EmulatorJS is ready to show its UI
+    window.EJS_ready = function() {
+      setTimeout(hideLoader, 200);
+    };
+
+    const s = document.createElement('script');
+    s.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+    document.body.appendChild(s);
+
+    // Canvas sampling as fallback in case EJS_ready never fires
+    setTimeout(watchCanvas, 3000);
+  }
 });
 
 window.parent.postMessage({ type: 'iframeReady' }, '*');
